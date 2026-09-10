@@ -189,3 +189,16 @@ body {
 }
 .toggle__opt--on { background: var(--accent); color: var(--accent-ink); }
 .field__input--select { font-size: 16px; font-weight: 600; }
+
+.probe__actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.probe__actions button {
+  flex: 1 1 auto;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.probe__actions button:disabled { opacity: 0.45; cursor: default; }
