@@ -20,6 +20,43 @@ export class PaycrestError extends Error {
   }
 }
 
+export type InstitutionType = "bank" | "mobile_money";
+
+/**
+ * A payout destination the corridor actually offers.
+ *
+ * The two shapes are not interchangeable and the corridors are lopsided:
+ * Nigeria is 171 banks and no mobile money, Uganda is two mobile-money
+ * providers and no banks. Anything that collects a recipient has to branch on
+ * `type` rather than assume an account number.
+ */
+export type Institution = {
+  name: string;
+  code: string;
+  type: InstitutionType;
+};
+
+/**
+ * Resolve an institution code against the corridor's own list.
+ *
+ * Catching this here means a mis-addressed payout fails while the user is
+ * still filling in a form, rather than after they have committed and the rail
+ * rejects it.
+ */
+export function findInstitution(
+  code: string,
+  institutions: readonly Institution[],
+): Institution {
+  const found = institutions.find((institution) => institution.code === code);
+  if (found === undefined) {
+    throw new PaycrestError(
+      `institution ${code} is not offered in this corridor`,
+      0,
+    );
+  }
+  return found;
+}
+
 export type Network = "polygon" | "base" | "arbitrum" | "optimism";
 
 export type RateQuery = {
@@ -149,6 +186,11 @@ export function createClient(config: ClientConfig) {
         throw new PaycrestError(`rail returned no ${query.side} rate`, 200);
       }
       return side;
+    },
+
+    /** The payout destinations this corridor offers, banks and wallets alike. */
+    async institutions(corridor: Corridor): Promise<Institution[]> {
+      return (await call(`/v2/institutions/${corridor}`)) as Institution[];
     },
 
     async getOrder(id: string): Promise<Order> {

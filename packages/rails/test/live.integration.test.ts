@@ -52,6 +52,19 @@ describe.skipIf(apiKey === undefined)("Paycrest, live", () => {
     expect((error as PaycrestError).status).toBe(404);
   }, 30_000);
 
+  test("the corridors disagree about what a recipient even is", async () => {
+    // Nigeria is banks-only, Uganda is mobile-money-only. Anything that
+    // collects a recipient depends on this, so it is worth a canary: if
+    // Paycrest adds Nigerian mobile money or a Ugandan bank, a failing test
+    // should tell us before a user does.
+    const ngn = await client.institutions("NGN");
+    const ugx = await client.institutions("UGX");
+
+    expect(ngn.length).toBeGreaterThan(100);
+    expect(ngn.every((i) => i.type === "bank")).toBe(true);
+    expect(ugx.every((i) => i.type === "mobile_money")).toBe(true);
+  }, 30_000);
+
   test("this client refuses to create an order", async () => {
     await expect(
       client.createOrder({ corridor: "NGN", usdtAmount: "1", body: {} }),
