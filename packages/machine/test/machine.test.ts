@@ -88,3 +88,22 @@ test("an escalated transaction carries its reference and its support contact", (
     support: "help@fourcorridors.app",
   });
 });
+
+test("a refund in flight is its own state, not a silent stay in settling", () => {
+  // Paycrest reports `refunding` before `refunded`. Rendering that as
+  // `settling` would tell a user their transaction is progressing when in
+  // fact it has failed and their money is on its way back.
+  expect(next("settling", "refund")).toEqual({ ok: true, state: "refunding" });
+  expect(next("refunding", "refund_complete")).toEqual({
+    ok: true,
+    state: "failed_refunded",
+  });
+  expect(TERMINAL_STATES).not.toContain("refunding");
+});
+
+test("a refund that itself gets stuck can still reach a human", () => {
+  const tx = { state: "refunding" as const, enteredAt: 0 };
+  expect(
+    escalate(tx, { reference: "FC-9ZZ1", support: "help@fourcorridors.app" }),
+  ).toMatchObject({ ok: true, state: "failed_manual" });
+});

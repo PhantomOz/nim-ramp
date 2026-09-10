@@ -19,6 +19,7 @@ export const STATES = [
   "failed_refunded",
   "failed_manual",
   "stalled",
+  "refunding",
 ] as const;
 
 export type State = (typeof STATES)[number];
@@ -32,6 +33,7 @@ export const EVENTS = [
   "complete",
   "stall",
   "refund",
+  "refund_complete",
   "escalate",
 ] as const;
 
@@ -56,19 +58,29 @@ const TRANSITIONS: Record<State, Partial<Record<Event, State>>> = {
     settle: "settling",
     reject: "rejected",
     stall: "stalled",
+    refund: "refunding",
     escalate: "failed_manual",
   },
   settling: {
     complete: "completed",
     stall: "stalled",
-    refund: "failed_refunded",
+    refund: "refunding",
+    escalate: "failed_manual",
+  },
+  // The rail reports a refund in flight before it reports one finished.
+  // Showing that as `settling` would tell a user their transaction is
+  // progressing when it has in fact failed.
+  refunding: {
+    refund_complete: "failed_refunded",
+    stall: "stalled",
     escalate: "failed_manual",
   },
   // Stalled is not terminal. A rail that went quiet can still settle, and the
   // brief is explicit that the user must never be left staring at `settling`.
   stalled: {
     complete: "completed",
-    refund: "failed_refunded",
+    refund: "refunding",
+    refund_complete: "failed_refunded",
     escalate: "failed_manual",
   },
   completed: {},

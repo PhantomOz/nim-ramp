@@ -50,7 +50,14 @@ importers:
 
   packages/machine: {}
 
-  packages/rails: {}
+  packages/rails:
+    dependencies:
+      '@ramp/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ramp/machine':
+        specifier: workspace:*
+        version: link:../machine
 
   packages/receipt: {}
 
