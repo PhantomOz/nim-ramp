@@ -1,83 +1,61 @@
-import { CORRIDORS, type Corridor } from "@ramp/core";
+import {
+  CHAINS,
+  type Chain,
+  CORRIDORS,
+  type Corridor,
+  type TokenSymbol,
+} from "@ramp/core";
 import type { State } from "@ramp/machine";
 import { connect, getProvider, hostLanguage, type Session } from "@ramp/wallet";
 import { useEffect, useState } from "react";
 
 import { HostPanel } from "./HostPanel.js";
 import { StatusScreen } from "./screens.js";
+import { type Direction, useQuote } from "./useQuote.js";
 
 const SUPPORT = "help@fourcorridors.app";
+const TOKENS: TokenSymbol[] = ["USDT", "USDC"];
 
-/**
- * Rates come straight from Paycrest's public endpoint — it needs no key, so
- * the browser can ask for itself. Everything that needs the API key goes
- * through our own server instead: an API key in a front-end bundle is an API
- * key published to the world.
- */
-const RATES = "https://api.paycrest.io/v2/rates";
-
-type Quote = { corridor: Corridor; rate: string; usdt: string; receive: string };
+const money = (n: number, dp = 2) =>
+  n.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
 export function App() {
+  const [direction, setDirection] = useState<Direction>("cash_out");
+  const [chain, setChain] = useState<Chain>(CHAINS[0] as Chain);
+  const [symbol, setSymbol] = useState<TokenSymbol>("USDT");
+  const [corridor, setCorridor] = useState<Corridor>("NGN");
+  const [amount, setAmount] = useState("10");
+
   const [session, setSession] = useState<Session | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
-  const [corridor, setCorridor] = useState<Corridor>("NGN");
-  const [usdt, setUsdt] = useState("10");
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const [quoting, setQuoting] = useState(false);
   const [txState] = useState<State | null>(null);
 
   const language = hostLanguage();
-
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
 
-  // Live rate for whatever the user has typed.
-  useEffect(() => {
-    if (usdt === "" || Number(usdt) <= 0) {
-      setQuote(null);
-      return;
-    }
-    let cancelled = false;
-    setQuoting(true);
+  const { quote, loading, error } = useQuote({
+    direction,
+    chain,
+    symbol,
+    corridor,
+    amount,
+  });
 
-    fetch(`${RATES}/polygon/USDT/${usdt}/${corridor}?side=sell`)
-      .then((r) => r.json())
-      .then((body: { data?: { sell?: { rate?: string } } }) => {
-        if (cancelled) return;
-        const rate = body.data?.sell?.rate;
-        if (rate === undefined) {
-          setQuote(null);
-          return;
-        }
-        setQuote({
-          corridor,
-          rate,
-          usdt,
-          receive: (Number(usdt) * Number(rate)).toFixed(2),
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setQuote(null);
-      })
-      .finally(() => {
-        if (!cancelled) setQuoting(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [usdt, corridor]);
+  const cashOut = direction === "cash_out";
+  const sendUnit = cashOut ? symbol : corridor;
+  const receiveUnit = cashOut ? corridor : symbol;
 
   async function onConnect() {
     setWalletError(null);
     try {
-      setSession(await connect(getProvider()));
-    } catch (error) {
-      setWalletError(
-        error instanceof Error ? error.message : "could not reach a wallet",
-      );
+      const next = await connect(getProvider(), { require: chain.slug });
+      setSession(next);
+      // Follow the wallet if it landed somewhere else.
+      setChain(next.chain);
+    } catch (e) {
+      setWalletError(e instanceof Error ? e.message : "could not reach a wallet");
     }
   }
 
@@ -93,24 +71,71 @@ export function App() {
     <main className="app">
       <header className="head">
         <h1 className="head__title">Four Corridors</h1>
-        <p className="head__sub">Cash out USDT to local currency</p>
+        <p className="head__sub">
+          Move value between stablecoin and local currency
+        </p>
       </header>
 
       {import.meta.env.DEV ? <HostPanel /> : null}
+
+      <div className="toggle" role="tablist" aria-label="Direction">
+        {(
+          [
+            ["cash_out", "Cash out"],
+            ["cash_in", "Cash in"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            id={`dir-${value}`}
+            role="tab"
+            type="button"
+            aria-selected={direction === value}
+            className={`toggle__opt${direction === value ? " toggle__opt--on" : ""}`}
+            onClick={() => setDirection(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <section className="card">
         <label className="field">
           <span className="field__label">You send</span>
           <div className="field__row">
             <input
-              id="usdt"
+              id="amount"
               className="field__input"
               inputMode="decimal"
-              value={usdt}
-              onChange={(e) => setUsdt(e.target.value)}
-              aria-label="Amount in USDT"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              aria-label={`Amount in ${sendUnit}`}
             />
-            <span className="field__unit">USDT</span>
+            {cashOut ? (
+              <select
+                id="symbol"
+                className="field__unit field__unit--select"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value as TokenSymbol)}
+                aria-label="Token"
+              >
+                {TOKENS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                id="corridor-send"
+                className="field__unit field__unit--select"
+                value={corridor}
+                onChange={(e) => setCorridor(e.target.value as Corridor)}
+                aria-label="Currency"
+              >
+                {CORRIDORS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
           </div>
         </label>
 
@@ -118,28 +143,66 @@ export function App() {
           <span className="field__label">They receive</span>
           <div className="field__row">
             <output className="field__input field__input--readonly">
-              {quoting ? "…" : (quote?.receive ?? "—")}
+              {loading
+                ? "…"
+                : quote === null
+                  ? "—"
+                  : money(quote.receive, cashOut ? 2 : 4)}
             </output>
+            {cashOut ? (
+              <select
+                id="corridor-recv"
+                className="field__unit field__unit--select"
+                value={corridor}
+                onChange={(e) => setCorridor(e.target.value as Corridor)}
+                aria-label="Currency"
+              >
+                {CORRIDORS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                id="symbol-recv"
+                className="field__unit field__unit--select"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value as TokenSymbol)}
+                aria-label="Token"
+              >
+                {TOKENS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Settles on</span>
+          <div className="field__row">
             <select
-              id="corridor"
-              className="field__unit field__unit--select"
-              value={corridor}
-              onChange={(e) => setCorridor(e.target.value as Corridor)}
-              aria-label="Currency"
+              id="chain"
+              className="field__input field__input--select"
+              value={chain.slug}
+              onChange={(e) => {
+                const next = CHAINS.find((c) => c.slug === e.target.value);
+                if (next !== undefined) setChain(next);
+              }}
+              aria-label="Chain"
             >
-              {CORRIDORS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+              {CHAINS.map((c) => (
+                <option key={c.slug} value={c.slug}>{c.name}</option>
               ))}
             </select>
           </div>
         </label>
 
         <p className="rate">
-          {quote === null
-            ? "Enter an amount to see today's rate"
-            : `1 USDT = ${Number(quote.rate).toLocaleString()} ${quote.corridor}`}
+          {error !== null
+            ? error
+            : quote === null
+              ? "Enter an amount to see today's rate"
+              : `1 ${symbol} = ${money(quote.rate)} ${corridor} · ${chain.name}`}
         </p>
       </section>
 
@@ -160,7 +223,8 @@ export function App() {
       ) : (
         <>
           <p className="connected">
-            Connected <code>{session.address.slice(0, 6)}…{session.address.slice(-4)}</code>
+            Connected <code>{session.address.slice(0, 6)}…{session.address.slice(-4)}</code>{" "}
+            on {session.chain.name}
           </p>
           <button className="cta" type="button" disabled>
             Continue — recipient details next

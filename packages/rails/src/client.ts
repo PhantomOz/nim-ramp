@@ -1,4 +1,4 @@
-import { type Corridor, toMinor } from "@ramp/core";
+import { type ChainSlug, type Corridor, toMinor, type TokenSymbol } from "@ramp/core";
 
 /**
  * The slice of `fetch` we use. Narrow on purpose: it keeps the tests honest
@@ -57,13 +57,18 @@ export function findInstitution(
   return found;
 }
 
-export type Network = "polygon" | "base" | "arbitrum" | "optimism";
-
+/**
+ * Paycrest's network slugs are the chain registry's slugs — deliberately the
+ * same strings, so a chain we can ramp on cannot be spelled one way for the
+ * wallet and another for the rail. Their docs say "arbitrum" and "optimism";
+ * the live API wants "arbitrum-one" and rejects optimism outright.
+ */
 export type RateQuery = {
-  network: Network;
-  from: "USDT" | "USDC";
+  network: ChainSlug;
+  from: TokenSymbol;
   amount: string;
   to: Corridor;
+  /** `sell` prices a cash-out, `buy` prices a cash-in. */
   side: "buy" | "sell";
 };
 

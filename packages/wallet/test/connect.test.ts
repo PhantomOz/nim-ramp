@@ -1,63 +1,77 @@
 import { expect, test } from "vitest";
 
-import {
-  connect,
-  getProvider,
-  POLYGON_CHAIN_ID,
-  WalletError,
-  type Eip1193,
-} from "../src/index.js";
+import { connect, getProvider, WalletError, type Eip1193 } from "../src/index.js";
 
-type Reply = Record<string, unknown>;
-
-function fakeWallet(replies: Reply) {
+function fakeWallet(replies: Record<string, unknown>) {
   const seen: { method: string; params?: unknown[] }[] = [];
   const provider: Eip1193 = {
     request: async (args) => {
       seen.push(args);
-      if (!(args.method in replies)) {
-        throw new Error(`unstubbed method ${args.method}`);
-      }
+      if (!(args.method in replies)) throw new Error(`unstubbed ${args.method}`);
       return replies[args.method];
     },
   };
   return { provider, seen };
 }
 
+const ACCOUNT = "0xABC0000000000000000000000000000000000001";
+
 test("running outside Nimiq Pay explains itself instead of returning undefined", () => {
   expect(() => getProvider({})).toThrow(WalletError);
   expect(() => getProvider({})).toThrow(/nimiq pay/i);
 });
 
-test("the injected provider is found when Nimiq Pay has supplied one", () => {
-  const { provider } = fakeWallet({});
-  expect(getProvider({ ethereum: provider })).toBe(provider);
-});
-
-test("connecting asks the wallet for accounts and reports the chain", async () => {
+test("a wallet already on a chain we serve is left where it is", async () => {
+  // Someone holding USDC on Base should not be yanked onto Polygon.
   const { provider, seen } = fakeWallet({
-    eth_requestAccounts: ["0xABC0000000000000000000000000000000000001"],
-    eth_chainId: "0x89",
+    eth_requestAccounts: [ACCOUNT],
+    eth_chainId: "0x2105", // Base
   });
 
   const session = await connect(provider);
 
-  expect(seen.map((s) => s.method)).toContain("eth_requestAccounts");
-  expect(session.address).toBe("0xABC0000000000000000000000000000000000001");
-  expect(session.chainId).toBe(POLYGON_CHAIN_ID);
+  expect(session.chain.slug).toBe("base");
+  expect(seen.map((s) => s.method)).not.toContain("wallet_switchEthereumChain");
 });
 
-test("a wallet on the wrong chain is asked to switch to Polygon", async () => {
+test("a wallet on BNB Smart Chain is recognised, not treated as Polygon", async () => {
+  const { provider } = fakeWallet({
+    eth_requestAccounts: [ACCOUNT],
+    eth_chainId: "0x38", // 56
+  });
+  const session = await connect(provider);
+  expect(session.chain.slug).toBe("bnb-smart-chain");
+  expect(session.chain.tokens.USDT.decimals).toBe(18);
+});
+
+test("a wallet on a chain we cannot ramp is moved to one we can", async () => {
+  // Optimism: Nimiq Pay supports it, Paycrest does not.
   const { provider, seen } = fakeWallet({
-    eth_requestAccounts: ["0xABC0000000000000000000000000000000000001"],
-    eth_chainId: "0x1", // Ethereum mainnet
+    eth_requestAccounts: [ACCOUNT],
+    eth_chainId: "0xa", // 10
     wallet_switchEthereumChain: null,
   });
 
-  await connect(provider);
+  const session = await connect(provider);
 
   const switched = seen.find((s) => s.method === "wallet_switchEthereumChain");
   expect(switched?.params).toEqual([{ chainId: "0x89" }]);
+  expect(session.chain.slug).toBe("polygon");
+});
+
+test("a caller can insist on a particular chain", async () => {
+  const { provider, seen } = fakeWallet({
+    eth_requestAccounts: [ACCOUNT],
+    eth_chainId: "0x89",
+    wallet_switchEthereumChain: null,
+  });
+
+  const session = await connect(provider, { require: "base" });
+
+  expect(seen.find((s) => s.method === "wallet_switchEthereumChain")?.params).toEqual([
+    { chainId: "0x2105" },
+  ]);
+  expect(session.chain.slug).toBe("base");
 });
 
 test("a wallet that returns no accounts is an error, not an empty session", async () => {

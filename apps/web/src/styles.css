@@ -166,3 +166,26 @@ body {
 .probe__row dt { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .probe__row dd { margin: 0; font-weight: 600; }
 .probe__absent { color: var(--fail); font-weight: 400; }
+
+/* direction toggle */
+.toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+}
+.toggle__opt {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.toggle__opt--on { background: var(--accent); color: var(--accent-ink); }
+.field__input--select { font-size: 16px; font-weight: 600; }

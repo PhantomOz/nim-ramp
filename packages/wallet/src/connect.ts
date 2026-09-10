@@ -1,10 +1,12 @@
+import { type Chain, chainByEvmId, chainBySlug, type ChainSlug } from "@ramp/core";
+
 /**
  * The EVM half of Nimiq Pay.
  *
  * Nimiq Pay injects two providers: `window.nimiq` (Nimiq L1, wrapped by
- * `@nimiq/mini-app-sdk`) and `window.ethereum` (standard EIP-1193). USDT on
- * Polygon lives behind the second one, which is why there is no Nimiq-specific
- * SDK in this file — it is an ordinary injected wallet.
+ * `@nimiq/mini-app-sdk`) and `window.ethereum` (standard EIP-1193). Stablecoin
+ * settlement lives behind the second one, which is why there is no
+ * Nimiq-specific SDK in this file — it is an ordinary injected wallet.
  */
 
 /** The slice of EIP-1193 we use. */
@@ -19,20 +21,14 @@ export class WalletError extends Error {
   }
 }
 
-/** Polygon PoS. */
-export const POLYGON_CHAIN_ID = 137;
-export const POLYGON_CHAIN_ID_HEX = "0x89";
+/** Where we send someone whose wallet is on a chain we cannot ramp. */
+export const DEFAULT_CHAIN: ChainSlug = "polygon";
 
-export type Session = { address: string; chainId: number };
+export type Session = { address: string; chain: Chain };
 
-/**
- * The injected provider, or a readable failure.
- *
- * A mini app opened in a plain browser has no provider at all, and that is a
- * normal thing to happen during development. It should say so rather than
- * fail later with `undefined is not a function`.
- */
-export function getProvider(win: { ethereum?: unknown } = globalThis as never): Eip1193 {
+export function getProvider(
+  win: { ethereum?: unknown } = globalThis as never,
+): Eip1193 {
   const injected = win.ethereum;
   if (injected === undefined || injected === null) {
     throw new WalletError(
@@ -42,19 +38,37 @@ export function getProvider(win: { ethereum?: unknown } = globalThis as never): 
   return injected as Eip1193;
 }
 
-async function chainIdOf(provider: Eip1193): Promise<number> {
+export async function currentChain(provider: Eip1193): Promise<Chain | null> {
   const raw = (await provider.request({ method: "eth_chainId" })) as string;
-  return Number.parseInt(raw, 16);
+  return chainByEvmId(Number.parseInt(raw, 16));
+}
+
+export async function switchChain(
+  provider: Eip1193,
+  chain: Chain,
+): Promise<void> {
+  await provider.request({
+    method: "wallet_switchEthereumChain",
+    params: [{ chainId: chain.evmIdHex }],
+  });
 }
 
 /**
- * Ask the wallet for an account and make sure we are on Polygon.
+ * Ask the wallet for an account and settle which chain we are ramping on.
  *
- * Nimiq Pay raises its own confirmation dialog for both, which we cannot
- * bypass or restyle — that is the property that keeps us out of the custody
- * path, so it is a feature rather than an obstacle.
+ * If the wallet is already on a chain both Nimiq Pay and Paycrest serve, it
+ * stays there — someone holding USDC on Base should not be yanked onto
+ * Polygon for our convenience. We only switch when we have to: their chain is
+ * one we cannot ramp (Optimism, say), or the caller insists on a specific one.
+ *
+ * Nimiq Pay raises its own confirmation dialog for all of this, which we
+ * cannot bypass or restyle. That is the property keeping us out of the
+ * custody path, so it is a feature rather than an obstacle.
  */
-export async function connect(provider: Eip1193): Promise<Session> {
+export async function connect(
+  provider: Eip1193,
+  options: { require?: ChainSlug } = {},
+): Promise<Session> {
   const accounts = (await provider.request({
     method: "eth_requestAccounts",
   })) as string[];
@@ -64,14 +78,23 @@ export async function connect(provider: Eip1193): Promise<Session> {
     throw new WalletError("wallet returned no accounts");
   }
 
-  let chainId = await chainIdOf(provider);
-  if (chainId !== POLYGON_CHAIN_ID) {
-    await provider.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: POLYGON_CHAIN_ID_HEX }],
-    });
-    chainId = POLYGON_CHAIN_ID;
+  const required =
+    options.require === undefined ? null : chainBySlug(options.require);
+  if (options.require !== undefined && required === null) {
+    throw new WalletError(`we do not ramp on ${options.require}`);
   }
 
-  return { address, chainId };
+  const present = await currentChain(provider);
+
+  if (required !== null) {
+    if (present?.slug !== required.slug) await switchChain(provider, required);
+    return { address, chain: required };
+  }
+
+  if (present !== null) return { address, chain: present };
+
+  const fallback = chainBySlug(DEFAULT_CHAIN);
+  if (fallback === null) throw new WalletError("no default chain configured");
+  await switchChain(provider, fallback);
+  return { address, chain: fallback };
 }

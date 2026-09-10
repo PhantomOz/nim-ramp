@@ -1,18 +1,7 @@
-import { toMinor } from "@ramp/core";
+import { type ChainSlug, chainBySlug, toMinor, tokenOn, type TokenSymbol } from "@ramp/core";
 import { encodeFunctionData, isAddress } from "viem";
 
-import {
-  type Eip1193,
-  POLYGON_CHAIN_ID,
-  POLYGON_CHAIN_ID_HEX,
-  WalletError,
-} from "./connect.js";
-
-/** USDT on Polygon PoS. */
-export const USDT_POLYGON = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
-
-/** USDT carries six decimals — not eighteen. */
-export const USDT_DECIMALS = 6;
+import { currentChain, type Eip1193, WalletError } from "./connect.js";
 
 export const ERC20_ABI = [
   {
@@ -28,23 +17,36 @@ export const ERC20_ABI = [
 ] as const;
 
 /**
- * Move USDT from the user's Nimiq Pay wallet to an address — in practice the
- * `receiveAddress` Paycrest returns on an off-ramp order.
+ * Move a stablecoin from the user's Nimiq Pay wallet to an address — in
+ * practice the `receiveAddress` Paycrest returns on an off-ramp order.
  *
- * The transaction goes *to the token contract* carrying a `transfer` call.
- * Addressing it to the recipient instead would send native MATIC and move no
- * USDT at all, which is the mistake this module exists to make impossible.
+ * Two things this makes impossible. The transaction goes *to the token
+ * contract* carrying a `transfer` call, never to the recipient — doing the
+ * latter sends native gas currency and moves no token. And decimals come from
+ * the chain registry rather than a constant, because BNB Smart Chain's USDT
+ * carries eighteen where every other chain we serve carries six.
  *
  * Nimiq Pay raises its own confirmation dialog before this is signed. We are
  * never in the custody path.
  */
-export async function sendUsdt(
+export async function sendToken(
   provider: Eip1193,
-  transfer: { from: string; to: string; amount: string },
+  transfer: {
+    chain: ChainSlug;
+    symbol: TokenSymbol;
+    from: string;
+    to: string;
+    amount: string;
+  },
 ): Promise<string> {
+  const chain = chainBySlug(transfer.chain);
+  if (chain === null) {
+    throw new WalletError(`we do not ramp on ${transfer.chain}`);
+  }
+
   // Addresses first, and as our own error rather than one thrown from deep
-  // inside ABI encoding. USDT sent to a wrong-but-valid address is gone, so
-  // the checksum is the last cheap guard we get.
+  // inside ABI encoding. A token sent to a wrong-but-valid address is gone,
+  // so the checksum is the last cheap guard we get.
   for (const [role, address] of [
     ["recipient", transfer.to],
     ["sender", transfer.from],
@@ -56,17 +58,17 @@ export async function sendUsdt(
     }
   }
 
-  // Exact minor units. `toMinor` refuses more precision than USDT carries
-  // rather than truncating it into an amount the user never agreed to.
-  const amount = toMinor(transfer.amount, USDT_DECIMALS);
+  const token = tokenOn(transfer.chain, transfer.symbol);
 
-  const chainId = Number.parseInt(
-    (await provider.request({ method: "eth_chainId" })) as string,
-    16,
-  );
-  if (chainId !== POLYGON_CHAIN_ID) {
+  // Per-token decimals, never a constant. `toMinor` also refuses more
+  // precision than the token carries rather than truncating it into an
+  // amount the user never agreed to.
+  const amount = toMinor(transfer.amount, token.decimals);
+
+  const present = await currentChain(provider);
+  if (present?.slug !== chain.slug) {
     throw new WalletError(
-      `wallet is on chain ${chainId}; USDT settlement needs Polygon (${POLYGON_CHAIN_ID_HEX})`,
+      `wallet is on ${present?.name ?? "an unsupported chain"}; this transfer is for ${chain.name}`,
     );
   }
 
@@ -81,7 +83,7 @@ export async function sendUsdt(
     params: [
       {
         from: transfer.from,
-        to: USDT_POLYGON,
+        to: token.address,
         // Nothing native moves: the value rides in the ERC-20 call data.
         value: "0x0",
         data,

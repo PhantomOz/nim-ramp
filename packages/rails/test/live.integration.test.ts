@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { CORRIDORS } from "@ramp/core";
+import { CHAINS, CORRIDORS } from "@ramp/core";
 
 import { createClient, type FetchLike, PaycrestError } from "../src/index.js";
 
@@ -37,6 +37,25 @@ describe.skipIf(apiKey === undefined)("Paycrest, live", () => {
       expect(rate.providerIds.length).toBeGreaterThan(0);
     }
   }, 30_000);
+
+  test("Paycrest still serves every chain in our registry", async () => {
+    // The registry is the intersection of two lists that move independently.
+    // Paycrest's own docs already disagree with its API — they list optimism,
+    // which the API rejects, and omit ethereum and bnb-smart-chain, which it
+    // serves. So the API is the authority and this is the canary.
+    for (const chain of CHAINS) {
+      for (const symbol of ["USDT", "USDC"] as const) {
+        const rate = await client.rates({
+          network: chain.slug,
+          from: symbol,
+          amount: "100",
+          to: "NGN",
+          side: "sell",
+        });
+        expect(Number(rate.rate)).toBeGreaterThan(0);
+      }
+    }
+  }, 90_000);
 
   test("our API key authenticates", async () => {
     // A well-formed but nonexistent order id. Paycrest answers 404 "Payment
