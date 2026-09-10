@@ -151,3 +151,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* development-only host readout */
+.probe {
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.probe__summary { cursor: pointer; color: var(--muted); }
+.probe__list { margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.probe__row { display: flex; justify-content: space-between; gap: 12px; }
+.probe__row dt { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.probe__row dd { margin: 0; font-weight: 600; }
+.probe__absent { color: var(--fail); font-weight: 400; }

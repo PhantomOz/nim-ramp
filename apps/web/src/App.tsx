@@ -3,6 +3,7 @@ import type { State } from "@ramp/machine";
 import { connect, getProvider, hostLanguage, type Session } from "@ramp/wallet";
 import { useEffect, useState } from "react";
 
+import { HostPanel } from "./HostPanel.js";
 import { StatusScreen } from "./screens.js";
 
 const SUPPORT = "help@fourcorridors.app";
@@ -94,6 +95,8 @@ export function App() {
         <h1 className="head__title">Four Corridors</h1>
         <p className="head__sub">Cash out USDT to local currency</p>
       </header>
+
+      {import.meta.env.DEV ? <HostPanel /> : null}
 
       <section className="card">
         <label className="field">
