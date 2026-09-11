@@ -550,3 +550,5 @@ input:focus { outline: none; }
 }
 .field:focus { border-color: var(--plum); }
 .field:disabled { opacity: .6; }
+
+.details--tight .details__row { padding: 11px 0; }

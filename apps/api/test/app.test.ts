@@ -441,6 +441,7 @@ test("a cash-out checks the cap against the amount as typed", async () => {
       chain: "polygon",
       symbol: "USDT",
       amount: "25",
+      address: "0x49A241Fda5A00BcE73F0CaD7A4F2b3885Ce08F4f",
       recipient: {
         institution: "GTBINGLA",
         accountIdentifier: "0123456789",
@@ -494,5 +495,170 @@ test("the cap is readable, so the app can show it before someone hits it", async
   expect(res.status).toBe(200);
   expect((await res.json()) as { maxTxUsdt: string }).toMatchObject({
     maxTxUsdt: "50",
+  });
+});
+
+test("a cash-out sends a refund address, because the rail requires one", async () => {
+  // "Invalid Ethereum refund address" is what the rail says without it. It is
+  // where the stablecoin returns if the payout cannot be made — the mirror of
+  // the refund account a cash-in needs.
+  let sent: Record<string, unknown> | null = null;
+  const { app } = deps({
+    client: {
+      createOrder: async (p: { body: Record<string, unknown> }) => {
+        sent = p.body;
+        return { id: "ord-6", status: "initiated", amount: "2" };
+      },
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  const res = await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_out",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "2",
+      address: "0x49A241Fda5A00BcE73F0CaD7A4F2b3885Ce08F4f",
+      recipient: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+
+  expect(res.status).toBe(201);
+  expect((sent as unknown as { source: Record<string, unknown> }).source).toMatchObject({
+    type: "crypto",
+    network: "polygon",
+    refundAddress: "0x49A241Fda5A00BcE73F0CaD7A4F2b3885Ce08F4f",
+  });
+});
+
+test("a cash-out without a refund address is refused before the rail sees it", async () => {
+  let reached = false;
+  const { app } = deps({
+    client: {
+      createOrder: async () => {
+        reached = true;
+        throw new Error("should not be called");
+      },
+    } as Partial<PaycrestClient>,
+  });
+
+  const res = await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_out",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "2",
+      recipient: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+
+  expect(res.status).toBe(400);
+  expect(reached).toBe(false);
+});
+
+test("a cash-out response carries the address to send the stablecoin to", async () => {
+  const { app } = deps({
+    client: {
+      createOrder: async () => ({
+        id: "ord-7",
+        status: "initiated",
+        amount: "2",
+        providerAccount: {
+          network: "polygon",
+          receiveAddress: "0xFB411cC6385AF50A562AFcB441864e9d541cdA67",
+          validUntil: "2026-09-11T19:00:00Z",
+        },
+      }),
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  const res = await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_out",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "2",
+      address: "0x49A241Fda5A00BcE73F0CaD7A4F2b3885Ce08F4f",
+      recipient: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+
+  const json = (await res.json()) as { receiveAddress?: string; validUntil?: string };
+  expect(json.receiveAddress).toBe("0xFB411cC6385AF50A562AFcB441864e9d541cdA67");
+  expect(json.validUntil).toBe("2026-09-11T19:00:00Z");
+});
+
+test("status carries what a receipt needs, from the rail's own record", async () => {
+  // A receipt assembled from what the browser remembered is a receipt that
+  // can disagree with the rail. These come back from the order itself.
+  const { app } = deps({
+    client: {
+      getOrder: async () => ({
+        id: "ord-1",
+        status: "settled",
+        amount: "1.454175",
+        rate: "1375.35",
+        senderFee: "0.0073",
+        txHash: "0x19a646c0",
+        updatedAt: "2026-09-11T18:23:15Z",
+        destination: {
+          recipient: {
+            institution: "GTBINGLA",
+            accountIdentifier: "0123456789",
+            accountName: "ADAEZE OKAFOR",
+          },
+        },
+      }),
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  const created = await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_in",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "2000",
+      address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+  const { ref } = (await created.json()) as { ref: string };
+
+  const res = await app.request(`/api/orders/${ref}`);
+  expect((await res.json()) as unknown).toMatchObject({
+    state: "completed",
+    amount: "1.454175",
+    rate: "1375.35",
+    senderFee: "0.0073",
+    txHash: "0x19a646c0",
+    recipient: { accountName: "ADAEZE OKAFOR" },
   });
 });

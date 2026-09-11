@@ -395,6 +395,9 @@ export function Review({
   corridor,
   chain,
   symbol,
+  recipient,
+  sending,
+  error,
   onConfirm,
   onExpired,
   onBack,
@@ -404,21 +407,28 @@ export function Review({
   corridor: Corridor;
   chain: Chain;
   symbol: TokenSymbol;
+  recipient: { institution: string; accountIdentifier: string; accountName: string } | null;
+  sending: boolean;
+  error: string | null;
   onConfirm: () => void;
   onExpired: () => void;
   onBack: () => void;
 }) {
   const [left, setLeft] = useState(LOCK_SECONDS);
   const country = COUNTRY[corridor];
+  const expired = left <= 0;
 
   useEffect(() => {
-    if (left <= 0) {
-      onExpired();
-      return;
-    }
+    // The lock stops counting once the wallet has the transfer: the price is
+    // committed at that point and a countdown would only be theatre.
+    if (sending || expired) return;
     const t = setTimeout(() => setLeft((n) => n - 1), 1000);
     return () => clearTimeout(t);
-  }, [left, onExpired]);
+  }, [left, sending, expired]);
+
+  useEffect(() => {
+    if (expired && !sending) onExpired();
+  }, [expired, sending, onExpired]);
 
   return (
     <>
@@ -428,7 +438,9 @@ export function Review({
       </div>
 
       <div className="scroll">
-        <div className="stamp stamp--warn">Price locked</div>
+        <div className={expired ? "stamp stamp--fail" : "stamp stamp--warn"}>
+          {expired ? "Price expired" : "Price locked"}
+        </div>
 
         <div className="section--lead">
           <div className="label">You send</div>
@@ -443,11 +455,31 @@ export function Review({
             <Num size="num--xl" marked sym={country.sym} value={fmt(receive)} />
           </div>
           <p className="body body--muted" style={{ marginTop: 8 }}>
-            This number is yours for <strong>{left}s</strong>.
+            {sending
+              ? "Approve the transfer in Nimiq Pay."
+              : expired
+                ? "The lock ran out. Nothing was sent."
+                : <>This number is yours for <strong>{left}s</strong>.</>}
           </p>
         </div>
 
         <div className="panel">
+          {recipient !== null ? (
+            <>
+              <div className="row">
+                <span className="row__k">To</span>
+                <span className="row__v">
+                  {recipient.accountName === ""
+                    ? recipient.accountIdentifier
+                    : recipient.accountName}
+                </span>
+              </div>
+              <div className="row">
+                <span className="row__k">Account</span>
+                <span className="row__v">{recipient.accountIdentifier}</span>
+              </div>
+            </>
+          ) : null}
           <div className="row">
             <span className="row__k">Network</span>
             <span className="row__v">{chain.name}</span>
@@ -456,21 +488,25 @@ export function Review({
             <span className="row__k">Paid by</span>
             <span className="row__v">{PARTNER}</span>
           </div>
-          <div className="row">
-            <span className="row__k">Lands in</span>
-            <span className="row__v">{country.name}</span>
-          </div>
         </div>
 
+        {error !== null ? (
+          <p className="body" style={{ marginTop: 12, color: "var(--fail)" }}>{error}</p>
+        ) : null}
+
         <p className="small" style={{ marginTop: 14 }}>
-          NimRamp is not in this chain. {PARTNER} is licensed for payments in{" "}
-          {country.name}; your wallet pays them directly.
+          Your wallet sends it directly to {PARTNER}, our licensed partner. They
+          pay your {country.method}. NimRamp never holds it.
         </p>
       </div>
 
       <div className="foot">
-        <button className="btn" type="button" onClick={onConfirm}>Confirm in wallet</button>
-        <button className="btn btn--secondary" type="button" onClick={onBack}>Back</button>
+        <button className="btn" type="button" disabled={sending || expired} onClick={onConfirm}>
+          {sending ? "Waiting for your wallet…" : expired ? "Price expired" : "Confirm in wallet"}
+        </button>
+        <button className="btn btn--secondary" type="button" onClick={onBack}>
+          Back
+        </button>
       </div>
     </>
   );

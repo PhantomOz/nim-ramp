@@ -32,7 +32,11 @@ export type CreatedOrder = {
   ref: string;
   orderId: string;
   state: State | null;
+  /** cash_in: the bank details to pay into. */
   account: PayAccount | null;
+  /** cash_out: the address to send the stablecoin to. */
+  receiveAddress: string | null;
+  validUntil: string | null;
 };
 
 type Fetch = typeof globalThis.fetch;
@@ -110,6 +114,8 @@ export async function createOrder(
     orderId: string;
     state: State | null;
     account: ProviderAccount | null;
+    receiveAddress: string | null;
+    validUntil: string | null;
   }>(response);
 
   return {
@@ -125,13 +131,30 @@ export async function createOrder(
             accountName: body.account.accountName ?? "",
             amount: body.account.amountToTransfer ?? "",
           },
+    receiveAddress: body.receiveAddress ?? null,
+    validUntil: body.validUntil ?? null,
   };
 }
+
+export type OrderStatus = {
+  ref: string;
+  state: State | null;
+  unrecognised?: boolean;
+  direction: "cash_in" | "cash_out";
+  corridor: Corridor;
+  symbol: string;
+  amount: string | null;
+  rate: string | null;
+  senderFee: string | null;
+  txHash: string | null;
+  updatedAt: string | null;
+  recipient: { accountIdentifier?: string; accountName?: string } | null;
+};
 
 export async function readOrder(
   ref: string,
   fetchImpl: Fetch = globalThis.fetch,
-): Promise<{ ref: string; state: State | null; unrecognised?: boolean }> {
+): Promise<OrderStatus> {
   return unwrap(await send(fetchImpl, `/api/orders/${ref}`));
 }
 

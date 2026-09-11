@@ -98,8 +98,18 @@ export function createApp(deps: AppDeps) {
     }
 
     const cashIn = direction === "cash_in";
-    if (cashIn && typeof body.address !== "string") {
-      return c.json({ error: "cash_in needs a destination address" }, 400);
+    // `address` is the user's own wallet either way: where the stablecoin
+    // lands on a cash-in, and where it returns on a cash-out that cannot be
+    // paid out. The rail refuses both without it.
+    if (typeof body.address !== "string") {
+      return c.json(
+        {
+          error: cashIn
+            ? "cash_in needs a destination address"
+            : "cash_out needs a refund address",
+        },
+        400,
+      );
     }
     // The rail requires a refund account on a fiat source — it is where the
     // money returns if the on-ramp fails. Omitting it earns a bare "Failed to
@@ -134,7 +144,13 @@ export function createApp(deps: AppDeps) {
           amount,
           amountIn: "crypto",
           senderFeePercent: SENDER_FEE_PERCENT,
-          source: { type: "crypto", currency: symbol, network: chain },
+          source: {
+            type: "crypto",
+            currency: symbol,
+            network: chain,
+            // Where it comes back if the payout fails.
+            refundAddress: body.address,
+          },
           destination: {
             type: "fiat",
             currency: corridor,
@@ -189,12 +205,19 @@ export function createApp(deps: AppDeps) {
       });
 
       const mapped = mapStatus(order.status);
+      const provider = order["providerAccount"] as Record<string, unknown> | undefined;
+
       return c.json(
         {
           ref,
           orderId: order.id,
           state: mapped.kind === "state" ? mapped.state : null,
-          account: order["providerAccount"] ?? null,
+          // A cash-in gets bank details to pay into; a cash-out gets an
+          // address to send the stablecoin to. Both live on the rail's
+          // `providerAccount`.
+          account: provider ?? null,
+          receiveAddress: provider?.["receiveAddress"] ?? null,
+          validUntil: provider?.["validUntil"] ?? null,
         },
         201,
       );
@@ -221,11 +244,26 @@ export function createApp(deps: AppDeps) {
       const order = await deps.client.getOrder(record.orderId);
       const mapped = mapStatus(order.status);
 
+      const destination = order["destination"] as
+        | { recipient?: Record<string, unknown> }
+        | undefined;
+
       return c.json({
         ref: record.ref,
         direction: record.direction,
         corridor: record.corridor,
+        symbol: record.symbol,
+        chain: record.chain,
         railStatus: order.status,
+        // Straight from the rail's record. A receipt assembled out of what
+        // the browser remembered is a receipt that can disagree with the
+        // ledger it is supposed to describe.
+        amount: order.amount ?? null,
+        rate: order["rate"] ?? null,
+        senderFee: order["senderFee"] ?? null,
+        txHash: order["txHash"] ?? null,
+        updatedAt: order["updatedAt"] ?? null,
+        recipient: destination?.recipient ?? null,
         // `null` when the rail reported something we do not recognise. The
         // client shows a real screen for that rather than an empty one.
         state: mapped.kind === "state" ? mapped.state : null,

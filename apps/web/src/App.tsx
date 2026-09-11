@@ -6,17 +6,30 @@ import {
   type TokenSymbol,
 } from "@ramp/core";
 import type { State } from "@ramp/machine";
-import { connect, getProvider, hostLanguage, type Session } from "@ramp/wallet";
+import {
+  connect,
+  getProvider,
+  hostLanguage,
+  sendToken,
+  type Session,
+} from "@ramp/wallet";
 import { useEffect, useState } from "react";
 
 import { AccountForm } from "./account.js";
-import { type Account, createOrder, readLimits, readOrder } from "./api.js";
+import {
+  type Account,
+  createOrder,
+  type OrderStatus,
+  readLimits,
+  readOrder,
+} from "./api.js";
 import { CashinPay, type PayAccount } from "./buy.js";
 import { explainRefusal } from "./explain.js";
 import { Amount, COUNTRY, Home, Intro, Review } from "./flow.js";
 import { HostPanel } from "./HostPanel.js";
 import { Progress } from "./progress.js";
 import { ChainSheet, CountrySheet } from "./sheets.js";
+import { Receipt } from "./receipt.js";
 import { StatusScreen } from "./screens.js";
 import { useQuote } from "./useQuote.js";
 
@@ -51,6 +64,9 @@ export function App() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<"country" | "chain" | null>(null);
   const [maxTxUsdt, setMaxTxUsdt] = useState<string | null>(null);
+  const [recipient, setRecipient] = useState<Account | null>(null);
+  const [sending, setSending] = useState(false);
+  const [settled, setSettled] = useState<OrderStatus | null>(null);
 
   const language = hostLanguage();
   useEffect(() => {
@@ -82,7 +98,11 @@ export function App() {
     const tick = async () => {
       try {
         const latest = await readOrder(reference);
-        if (!stop && latest.state !== null) setTxState(latest.state);
+        if (stop) return;
+        // Keep the settled order so the receipt reads the rail's figures
+        // rather than what this app remembered typing.
+        if (latest.state === "completed") setSettled(latest);
+        if (latest.state !== null) setTxState(latest.state);
       } catch {
         // Transient. The next tick tries again; the stall window in the
         // machine is what eventually gives up, not this loop.
@@ -135,6 +155,9 @@ export function App() {
     setAccount(null);
     setReference(null);
     setOrderError(null);
+    setRecipient(null);
+    setSending(false);
+    setSettled(null);
     setStep("home");
   }
 
@@ -172,7 +195,68 @@ export function App() {
     }
   }
 
+  /**
+   * Create the order, then hand the transfer to the wallet.
+   *
+   * Two steps that must happen in this order: the rail issues the address to
+   * send to, and only then does anything move. Nimiq Pay raises its own
+   * approval dialog for the transfer, which we cannot bypass — that is the
+   * property that keeps us out of the custody path.
+   */
+  async function startCashOut() {
+    if (session === null) {
+      setOrderError("Connect your Nimiq Pay wallet first.");
+      return;
+    }
+    if (recipient === null) {
+      setOrderError("Choose where the money should go first.");
+      return;
+    }
+
+    setOrderError(null);
+    setSending(true);
+
+    try {
+      const order = await createOrder({
+        direction: "cash_out",
+        corridor,
+        chain: chain.slug,
+        symbol,
+        amount,
+        // Our own wallet: where the stablecoin returns if the payout fails.
+        address: session.address,
+        recipient,
+      });
+      setReference(order.ref);
+
+      if (order.receiveAddress === null) {
+        setOrderError("The rail did not give us an address to send to.");
+        return;
+      }
+
+      await sendToken(getProvider(), {
+        chain: chain.slug,
+        symbol,
+        from: session.address,
+        to: order.receiveAddress,
+        amount,
+      });
+
+      setTxState("submitted");
+    } catch (e) {
+      // A rejected wallet dialog lands here too, which is correct: nothing
+      // moved, and the order simply expires unpaid.
+      setOrderError(e instanceof Error ? e.message : "could not start the transfer");
+    } finally {
+      setSending(false);
+    }
+  }
+
   const body = (() => {
+    if (txState === "completed" && settled !== null) {
+      return <Receipt data={{ ...settled, ref: settled.ref }} onDone={home} />;
+    }
+
     if (txState !== null) {
       return IN_FLIGHT.includes(txState) ? (
         <Progress
@@ -254,8 +338,12 @@ export function App() {
             purpose={cashOut ? "payout" : "refund"}
             onBack={() => setStep("amount")}
             onUse={(acct) => {
-              if (cashOut) setStep("review");
-              else void startCashIn(amount, acct);
+              if (cashOut) {
+                setRecipient(acct);
+                setStep("review");
+              } else {
+                void startCashIn(amount, acct);
+              }
             }}
           />
         );
@@ -281,9 +369,12 @@ export function App() {
             corridor={corridor}
             chain={chain}
             symbol={symbol}
-            onBack={() => setStep("amount")}
+            recipient={recipient}
+            sending={sending}
+            error={orderError}
+            onBack={() => setStep("account")}
             onExpired={() => setTxState("quote_expired")}
-            onConfirm={() => setTxState("confirmed")}
+            onConfirm={() => void startCashOut()}
           />
         );
     }
