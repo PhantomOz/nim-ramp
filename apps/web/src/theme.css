@@ -1,0 +1,249 @@
+/*
+ * NimRamp design system.
+ *
+ * From the Claude Design board: paper ground, one ink, and a rubber stamp on
+ * the moments that matter. Numbers are set in a serif so a figure reads like
+ * something written on a receipt; the interface is Onest. Apricot appears in
+ * exactly one place per screen — under the number you are being promised.
+ *
+ * The persona is Adaeze in Lagos, on Android, often outdoors: large type,
+ * full-strength ink, no thin grey text.
+ */
+
+:root {
+  --paper: #F5F0EC;
+  --board: #E9E2DC;
+  --card: #FFFFFF;
+  --ink: #2A1B2E;
+  --ink-2: #3B1C37;
+  --plum: #4A2545;
+  --muted: #6E6070;
+  --muted-2: #5C4F5E;
+  --line: rgba(42, 27, 46, 0.1);
+  --line-strong: rgba(42, 27, 46, 0.18);
+
+  /* The single accent. Under the promised number, nowhere else. */
+  --apricot: #FFB25B;
+
+  --ok: #2F6B4F;
+  --fail: #A83A2B;
+  --fail-ink: #8A2E22;
+  --warn: #7A4A0C;
+  --warn-2: #B06A12;
+
+  --ui: Onest, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --num: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+input, button, select { font-family: inherit; }
+input:focus { outline: none; }
+
+/* ---- the stamp -------------------------------------------------------- */
+
+@keyframes nrStamp {
+  0%   { transform: rotate(-6deg) scale(1.9); opacity: 0; }
+  55%  { transform: rotate(-6deg) scale(0.95); opacity: 1; }
+  100% { transform: rotate(-6deg) scale(1); opacity: 0.95; }
+}
+@keyframes nrRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes nrPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.7); opacity: 0.45; } }
+
+.stamp {
+  display: inline-block;
+  font: 700 13px/1 var(--ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  transform: rotate(-6deg);
+  animation: nrStamp 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.stamp--ok { color: var(--ok); }
+.stamp--fail { color: var(--fail); }
+.stamp--warn { color: var(--warn-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp { animation: none; }
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ---- shell ------------------------------------------------------------ */
+
+.phone {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+.bar {
+  flex: none;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.bar__name { font: 600 14px/1 var(--ui); }
+.bar__sub { font: 400 11px/1 var(--ui); color: var(--muted); }
+
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 20px calc(24px + env(safe-area-inset-bottom));
+  animation: nrRise 260ms ease both;
+}
+
+.title { font: 600 24px/1.2 var(--ui); letter-spacing: -0.015em; margin: 0; }
+.sub { font: 400 14.5px/1.5 var(--ui); color: var(--muted); margin: 0; }
+
+/* ---- the promised number ---------------------------------------------- */
+
+.promise { display: flex; flex-direction: column; gap: 4px; }
+.promise__label { font: 400 13px/1 var(--ui); color: var(--muted); }
+.promise__value {
+  font: 400 44px/1 var(--num);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.promise__rule { height: 3px; background: var(--apricot); border-radius: 2px; width: 56px; }
+.promise__note { font: 400 12.5px/1.4 var(--ui); color: var(--muted); }
+
+/* ---- cards and rows --------------------------------------------------- */
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.row__k { font: 400 13.5px/1.4 var(--ui); color: var(--muted); }
+.row__v { font: 500 14.5px/1.4 var(--ui); text-align: right; }
+.row__v--num { font-family: var(--num); font-size: 17px; font-weight: 400; }
+
+.rule { height: 1px; background: var(--line); border: 0; margin: 2px 0; }
+
+/* ---- buttons ---------------------------------------------------------- */
+
+.btn {
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 600 16px/1 var(--ui);
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.35; cursor: default; }
+.btn--ghost {
+  background: transparent;
+  color: var(--plum);
+  border: 1px solid var(--line-strong);
+}
+.btn--quiet { background: transparent; color: var(--muted); border: 0; padding: 12px; }
+
+.bigchoice {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: var(--card);
+  cursor: pointer;
+}
+.bigchoice__t { font: 600 18px/1.2 var(--ui); }
+.bigchoice__p { font: 500 13px/1.2 var(--ui); color: var(--plum); }
+.bigchoice__s { font: 400 13px/1.4 var(--ui); color: var(--muted); }
+.bigchoice:disabled { opacity: 0.45; cursor: default; }
+
+/* ---- keypad ----------------------------------------------------------- */
+
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: auto; }
+.pad button {
+  padding: 17px 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font: 500 21px/1 var(--ui);
+  color: var(--ink);
+  cursor: pointer;
+}
+.pad button:active { background: var(--board); }
+
+/* ---- misc ------------------------------------------------------------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--card);
+  font: 500 12.5px/1 var(--ui);
+  cursor: pointer;
+  color: var(--ink);
+}
+.trust { font: 400 12.5px/1.5 var(--ui); color: var(--muted); margin: 0; }
+.notice { font: 400 13px/1.45 var(--ui); color: var(--warn); margin: 0; }
+.ref { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+.spacer { flex: 1; }
+
+/* ---- development-only host readout ------------------------------------ */
+
+.probe {
+  background: var(--card);
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 12px 20px 0;
+  font-size: 13px;
+}
+.probe__summary { cursor: pointer; color: var(--muted); }
+.probe__list { margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.probe__row { display: flex; justify-content: space-between; gap: 12px; }
+.probe__row dt { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.probe__row dd { margin: 0; font-weight: 600; }
+.probe__absent { color: var(--fail); font-weight: 400; }
+.probe__actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.probe__actions button {
+  flex: 1 1 auto;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.probe__actions button:disabled { opacity: 0.45; cursor: default; }

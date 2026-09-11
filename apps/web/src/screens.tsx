@@ -1,95 +1,130 @@
 import type { State } from "@ramp/machine";
 
 /**
- * Tone drives colour and nothing else. It exists so that `refunding` cannot
- * accidentally be styled like progress — the rail reports it between a
- * failure and the money landing back, and telling someone their transfer is
- * "on its way" at that moment is the exact failure the rubric calls out.
+ * Transaction screens, in the board's language.
+ *
+ * Failures share one skeleton every time — what happened, your money, the
+ * reference — so people learn where to look before they need to. The stamp is
+ * the only decoration and lands on the moments that matter: arrived,
+ * refunding, not sent.
+ *
+ * Copy is deliberately plain. Adaeze is outdoors on a phone, not reading a
+ * status page.
  */
+
 export type Tone = "progress" | "done" | "failed" | "attention";
+
+/** The stamp's own palette — ink colours, not screen semantics. */
+export type StampTone = "ok" | "fail" | "warn";
 
 export type ScreenSpec = {
   title: string;
-  explanation: string;
+  /** "What happened" — always present. */
+  happened: string;
+  /** "Your money" — required wherever tone is `failed`. */
+  money: string | null;
+  stamp: { text: string; tone: StampTone } | null;
   tone: Tone;
-  /** Terminal-ish states the user may need to quote to a human. */
   showsReference: boolean;
 };
 
 export const SCREENS: Record<State, ScreenSpec> = {
   quoted: {
     title: "Check the details",
-    explanation:
-      "This is the exact amount your recipient will get. The rate holds until the timer runs out.",
+    happened:
+      "This is the exact amount that lands. The price holds until the timer runs out.",
+    money: null,
+    stamp: { text: "Price locked", tone: "warn" },
     tone: "attention",
     showsReference: false,
   },
   confirmed: {
     title: "Confirm in your wallet",
-    explanation:
-      "Nimiq Pay will ask you to approve the transfer. Nothing moves until you do.",
+    happened:
+      "Nimiq Pay will ask you to approve it. Nothing moves until you do.",
+    money: null,
+    stamp: null,
     tone: "progress",
     showsReference: false,
   },
   submitted: {
     title: "Waiting for your USDT",
-    explanation:
-      "We have reserved the rate. As soon as your transfer lands on Polygon, the payout starts.",
+    happened:
+      "The price is held. As soon as your transfer arrives, the payout starts.",
+    money: null,
+    stamp: null,
     tone: "progress",
     showsReference: true,
   },
   settling: {
     title: "On its way",
-    explanation:
-      "Your USDT arrived and the payout is being made. This usually takes a couple of minutes.",
+    happened:
+      "Your money reached our payments partner and they are paying your account now. Usually under two minutes.",
+    money: null,
+    stamp: null,
     tone: "progress",
     showsReference: true,
   },
   completed: {
-    title: "Sent",
-    explanation: "Your recipient has been paid. Keep this receipt.",
+    title: "Arrived",
+    happened: "Your recipient has been paid. Keep this receipt.",
+    money: null,
+    stamp: { text: "Arrived", tone: "ok" },
     tone: "done",
     showsReference: true,
   },
   quote_expired: {
-    title: "That rate expired",
-    explanation:
-      "Rates only hold for a few minutes. Nothing was sent and nothing was charged — start again for a fresh one.",
+    title: "The price ran out",
+    happened:
+      "Prices only hold for a short time, and this one expired before it was confirmed.",
+    money: "Nothing was sent and nothing left your wallet.",
+    stamp: { text: "Not sent", tone: "warn" },
     tone: "attention",
     showsReference: false,
   },
   rejected: {
-    title: "The transfer was declined",
-    explanation:
-      "The payout provider could not accept this one. Nothing left your wallet. Check the recipient details and try again.",
+    title: "The account was rejected",
+    happened:
+      "Our payments partner could not pay that account. Usually the number or the name does not match.",
+    money: "Nothing left your wallet. Check the details and try again.",
+    stamp: { text: "Not sent", tone: "fail" },
     tone: "failed",
     showsReference: true,
   },
   refunding: {
-    title: "Returning your money",
-    explanation:
-      "This transfer could not be completed, so your USDT is being sent back to your wallet. You do not need to do anything.",
+    title: "Sending your money back",
+    happened:
+      "This transfer could not be completed, so your money is on its way back to your wallet.",
+    money: "Your USDT is being returned. You do not need to do anything.",
+    stamp: { text: "Refunding", tone: "fail" },
     tone: "failed",
     showsReference: true,
   },
   failed_refunded: {
     title: "Returned to your wallet",
-    explanation:
-      "The transfer did not go through and your USDT is back. You were not charged.",
+    happened: "The transfer did not go through.",
+    money: "Your USDT is back in your wallet. You were not charged.",
+    stamp: { text: "Returned", tone: "fail" },
     tone: "failed",
     showsReference: true,
   },
   failed_manual: {
-    title: "We need to sort this one out by hand",
-    explanation:
-      "Something went wrong that we have to fix ourselves. Your money is accounted for. Quote the reference below and we will come back to you.",
+    title: "We have to sort this one out by hand",
+    happened:
+      "Something went wrong that we have to fix ourselves rather than automatically.",
+    money:
+      "Your money is accounted for. Quote the reference below and we will come back to you.",
+    stamp: null,
     tone: "failed",
     showsReference: true,
   },
   stalled: {
-    title: "This is taking longer than expected",
-    explanation:
-      "The payout provider has not confirmed yet. It may still complete on its own. If it does not, quote the reference below and we will chase it.",
+    title: "This is slow today",
+    happened:
+      "Our payments partner has not confirmed yet. Delays like this usually clear on their own.",
+    money:
+      "Your money is with our partner. If it does not land, it comes back to your wallet.",
+    stamp: null,
     tone: "attention",
     showsReference: true,
   },
@@ -99,29 +134,67 @@ export function StatusScreen({
   state,
   reference,
   support,
+  onDone,
 }: {
   state: State;
   reference?: string;
   support: string;
+  onDone?: () => void;
 }) {
   const spec = SCREENS[state];
+  const stampClass =
+    spec.stamp === null ? "" : `stamp stamp--${spec.stamp.tone}`;
 
   return (
-    <section className={`status status--${spec.tone}`} aria-live="polite">
-      <p className="status__tag">{state.replace(/_/g, " ")}</p>
-      <h1 className="status__title">{spec.title}</h1>
-      <p className="status__explanation">{spec.explanation}</p>
-
-      {spec.showsReference && reference !== undefined ? (
-        <p className="status__reference">
-          Reference <code>{reference}</code>
-        </p>
+    <section className="screen" aria-live="polite">
+      {spec.stamp !== null ? (
+        <div>
+          <span className={stampClass}>{spec.stamp.text}</span>
+        </div>
       ) : null}
 
-      {spec.tone === "failed" || state === "stalled" ? (
-        <p className="status__support">
-          Reach a person at <a href={`mailto:${support}`}>{support}</a>
-        </p>
+      <h1 className="title">{spec.title}</h1>
+
+      <div className="panel">
+        <div>
+          <p className="row__k">What happened</p>
+          <p className="sub" style={{ color: "var(--ink)" }}>
+            {spec.happened}
+          </p>
+        </div>
+
+        {spec.money !== null ? (
+          <>
+            <hr className="rule" />
+            <div>
+              <p className="row__k">Your money</p>
+              <p className="sub" style={{ color: "var(--ink)" }}>
+                {spec.money}
+              </p>
+            </div>
+          </>
+        ) : null}
+
+        {spec.showsReference && reference !== undefined ? (
+          <>
+            <hr className="rule" />
+            <div>
+              <p className="row__k">Reference</p>
+              <p className="ref">{reference}</p>
+              <p className="trust">
+                Quote this to a human and they will see exactly what you see —{" "}
+                <a href={`mailto:${support}`}>{support}</a>
+              </p>
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      <div className="spacer" />
+      {onDone !== undefined ? (
+        <button className="btn" type="button" onClick={onDone}>
+          Done
+        </button>
       ) : null}
     </section>
   );
