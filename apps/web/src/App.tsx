@@ -10,7 +10,7 @@ import { connect, getProvider, hostLanguage, type Session } from "@ramp/wallet";
 import { useEffect, useState } from "react";
 
 import { AccountForm } from "./account.js";
-import { type Account, createOrder, readOrder } from "./api.js";
+import { type Account, createOrder, readLimits, readOrder } from "./api.js";
 import { CashinPay, type PayAccount } from "./buy.js";
 import { explainRefusal } from "./explain.js";
 import { Amount, COUNTRY, Home, Intro, Review } from "./flow.js";
@@ -50,11 +50,27 @@ export function App() {
   const [reference, setReference] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<"country" | "chain" | null>(null);
+  const [maxTxUsdt, setMaxTxUsdt] = useState<string | null>(null);
 
   const language = hostLanguage();
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+
+  useEffect(() => {
+    let stop = false;
+    readLimits()
+      .then((l) => {
+        if (!stop) setMaxTxUsdt(l.maxTxUsdt);
+      })
+      .catch(() => {
+        // The server still enforces it. Not knowing the number only costs us
+        // the hint on the amount screen.
+      });
+    return () => {
+      stop = true;
+    };
+  }, []);
 
   // While a transfer is in flight, ask the rail. The server never serves a
   // cached verdict, so this is the live state rather than our memory of it.
@@ -219,6 +235,7 @@ export function App() {
             symbol={symbol}
             rate={quote?.rate ?? null}
             blocked={blocked}
+            maxTxUsdt={maxTxUsdt}
             onBack={() => setStep("home")}
             onReview={(a) => {
               setAmount(a);

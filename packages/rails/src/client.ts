@@ -161,7 +161,7 @@ export function createClient(config: ClientConfig) {
    * key and no fake corridor — so every one of these protects real money, and
    * each refuses before the rail is reached rather than after.
    */
-  function guardOrder(corridor: Corridor, usdtAmount: string): void {
+  function guardOrder(corridor: Corridor, stablecoinAmount: string): void {
     if (config.killSwitch) {
       throw new PaycrestError(
         "kill switch is on; refusing to create an order",
@@ -176,11 +176,11 @@ export function createClient(config: ClientConfig) {
     // Exact minor units, never a float: `toMinor` also refuses an amount that
     // carries more precision than USDT does, rather than truncating it into
     // something the user never agreed to.
-    const amount = toMinor(usdtAmount, USDT_DECIMALS);
+    const amount = toMinor(stablecoinAmount, USDT_DECIMALS);
     const cap = toMinor(config.maxTxUsdt, USDT_DECIMALS);
     if (amount > cap) {
       throw new PaycrestError(
-        `amount ${usdtAmount} USDT exceeds the ${config.maxTxUsdt} USDT cap`,
+        `amount ${stablecoinAmount} USDT exceeds the ${config.maxTxUsdt} USDT cap`,
         0,
       );
     }
@@ -227,10 +227,16 @@ export function createClient(config: ClientConfig) {
      */
     async createOrder(params: {
       corridor: Corridor;
-      usdtAmount: string;
+      /**
+       * The value in stablecoin units — never the amount the user typed.
+       * On a cash-in they type fiat, and comparing naira against a cap
+       * denominated in dollars refuses transfers worth a dollar. The caller
+       * converts; this only enforces.
+       */
+      stablecoinAmount: string;
       body: Record<string, unknown>;
     }): Promise<Order> {
-      guardOrder(params.corridor, params.usdtAmount);
+      guardOrder(params.corridor, params.stablecoinAmount);
       return (await call("/v2/sender/orders", {
         method: "POST",
         body: params.body,

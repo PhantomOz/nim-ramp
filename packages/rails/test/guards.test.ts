@@ -20,7 +20,7 @@ const client = (over: Partial<Parameters<typeof createClient>[0]> = {}) =>
 
 const order = (usdtAmount: string, corridor: "NGN" | "KES" = "NGN") => ({
   corridor,
-  usdtAmount,
+  stablecoinAmount: usdtAmount,
   body: {},
 });
 

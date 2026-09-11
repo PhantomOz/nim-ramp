@@ -21,6 +21,8 @@ export type AppDeps = {
   client: PaycrestClient;
   store: Store;
   webhookSecret: string;
+  /** The per-transfer ceiling, so the app can show it rather than enforce it. */
+  maxTxUsdt: string;
   /** Called when a webhook moves an order. Somewhere to hang notifications. */
   onStatus: (update: { ref: string; orderId: string; state: State | null }) => void;
   /** Origin allowed to call us cross-site. Same-origin in production. */
@@ -141,11 +143,36 @@ export function createApp(deps: AppDeps) {
         };
 
     try {
+      /*
+       * The cap is denominated in stablecoin, and on a cash-in the user types
+       * fiat — 2000 naira is about 1.45 USDT, not 2000 of anything. So the
+       * value is converted here before the guard sees it.
+       *
+       * Deliberately server-side. The cap is a safety control, so a browser
+       * must never get to tell us what its fiat is worth; any amount could
+       * then be declared worth a dollar and walk straight past it.
+       */
+      let stablecoinAmount = amount;
+      if (cashIn) {
+        const { rate } = await deps.client.rates({
+          network: chain,
+          from: symbol,
+          amount: "1",
+          to: corridor,
+          side: "buy",
+        });
+        const priced = Number(rate);
+        if (!Number.isFinite(priced) || priced <= 0) {
+          return c.json({ error: "no rate available for that route right now" }, 502);
+        }
+        stablecoinAmount = (Number(amount) / priced).toFixed(6);
+      }
+
       // The cap, kill switch and corridor toggles are enforced inside the
       // client, before the request leaves the process.
       const order = await deps.client.createOrder({
         corridor,
-        usdtAmount: amount,
+        stablecoinAmount,
         body: railBody,
       });
 
@@ -317,6 +344,15 @@ export function createApp(deps: AppDeps) {
       );
     }
   });
+
+  /**
+   * The cap, published.
+   *
+   * Enforcement stays on the server — this is so the amount screen can say
+   * "up to ₦68,750" while someone is typing, instead of refusing them
+   * afterwards with a number in a currency they are not using.
+   */
+  app.get("/api/limits", (c) => c.json({ maxTxUsdt: deps.maxTxUsdt }));
 
   app.get("/api/health", (c) => c.json({ ok: true }));
 

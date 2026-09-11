@@ -17,6 +17,9 @@ function deps(over: Partial<{ client: Partial<PaycrestClient> }> = {}) {
   };
 
   const client = {
+    // A cash-in converts fiat to stablecoin before the cap is checked, so
+    // every cash-in path needs a rate.
+    rates: async () => ({ rate: "1375", providerIds: ["AbCdEfGh"] }),
     createOrder: async () => ({
       id: "ord-1",
       status: "initiated",
@@ -39,6 +42,7 @@ function deps(over: Partial<{ client: Partial<PaycrestClient> }> = {}) {
       client,
       store,
       webhookSecret: SECRET,
+      maxTxUsdt: "50",
       onStatus: () => undefined,
     }),
     records,
@@ -341,6 +345,7 @@ test("an unavailable verifier is distinguished from a rejected account", async (
     } as unknown as PaycrestClient,
     store: { put: () => undefined, byRef: () => undefined, byOrderId: () => undefined },
     webhookSecret: SECRET,
+    maxTxUsdt: "50",
     onStatus: () => undefined,
   });
 
@@ -364,6 +369,7 @@ test("a genuinely wrong account is still a rejection", async () => {
     } as unknown as PaycrestClient,
     store: { put: () => undefined, byRef: () => undefined, byOrderId: () => undefined },
     webhookSecret: SECRET,
+    maxTxUsdt: "50",
     onStatus: () => undefined,
   });
 
@@ -375,4 +381,118 @@ test("a genuinely wrong account is still a rejection", async () => {
 
   expect(res.status).toBe(422);
   expect((await res.json()) as { kind: string }).toMatchObject({ kind: "rejected" });
+});
+
+test("a cash-in cap is applied to the stablecoin value, not the fiat typed", async () => {
+  // 2000 NGN at ~1375 is about 1.45 USDT — far under a 50 USDT cap. Comparing
+  // the typed 2000 against the cap reads naira as dollars and refuses a
+  // transfer worth a dollar and a half.
+  let capChecked: string | null = null;
+  const { app } = deps({
+    client: {
+      rates: async () => ({ rate: "1375", providerIds: ["AbCdEfGh"] }),
+      createOrder: async (p: { stablecoinAmount: string }) => {
+        capChecked = p.stablecoinAmount;
+        return { id: "ord-3", status: "initiated", amount: "2000" };
+      },
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  const res = await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_in",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "2000",
+      address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+
+  expect(res.status).toBe(201);
+  expect(Number(capChecked)).toBeCloseTo(2000 / 1375, 4);
+});
+
+test("a cash-out checks the cap against the amount as typed", async () => {
+  // Cash-out is already denominated in the token, so it passes through.
+  let capChecked: string | null = null;
+  const { app } = deps({
+    client: {
+      createOrder: async (p: { stablecoinAmount: string }) => {
+        capChecked = p.stablecoinAmount;
+        return { id: "ord-4", status: "initiated", amount: "25" };
+      },
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_out",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "25",
+      recipient: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+
+  expect(capChecked).toBe("25");
+});
+
+test("the client cannot tell us what its fiat is worth", async () => {
+  // The cap is a safety control. If the browser supplied the conversion, any
+  // amount could be declared worth a dollar and walk past it.
+  let capChecked: string | null = null;
+  const { app } = deps({
+    client: {
+      rates: async () => ({ rate: "1375", providerIds: ["AbCdEfGh"] }),
+      createOrder: async (p: { stablecoinAmount: string }) => {
+        capChecked = p.stablecoinAmount;
+        return { id: "ord-5", status: "initiated", amount: "9999999" };
+      },
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_in",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "9999999",
+      stablecoinAmount: "0.01", // a lie the server must ignore
+      address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+
+  expect(Number(capChecked)).toBeCloseTo(9999999 / 1375, 2);
+});
+
+test("the cap is readable, so the app can show it before someone hits it", async () => {
+  const { app } = deps();
+  const res = await app.request("/api/limits");
+  expect(res.status).toBe(200);
+  expect((await res.json()) as { maxTxUsdt: string }).toMatchObject({
+    maxTxUsdt: "50",
+  });
 });

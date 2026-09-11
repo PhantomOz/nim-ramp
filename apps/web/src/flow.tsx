@@ -219,6 +219,7 @@ export function Amount({
   symbol,
   rate,
   blocked,
+  maxTxUsdt,
   onBack,
   onReview,
 }: {
@@ -228,6 +229,7 @@ export function Amount({
   symbol: TokenSymbol;
   rate: number | null;
   blocked: Explanation | null;
+  maxTxUsdt: string | null;
   onBack: () => void;
   onReview: (amount: string) => void;
 }) {
@@ -256,8 +258,31 @@ export function Amount({
     setAmount((a) => (a === "0" && k !== "." ? k : a + k));
   };
 
+  /*
+   * The cap is denominated in stablecoin, but on a cash-in people type fiat.
+   * Showing "50 USDT" to someone entering naira is how they end up refused
+   * after the fact with a number in a currency they are not using, so it is
+   * converted into whatever they are actually typing.
+   */
+  const capHere =
+    maxTxUsdt === null
+      ? null
+      : cashOut
+        ? Number(maxTxUsdt)
+        : rate === null
+          ? null
+          : Number(maxTxUsdt) * rate;
+
+  const typed = Number(amount);
+  const overCap =
+    capHere !== null && amount !== "" && Number.isFinite(typed) && typed > capHere;
+
   const ready =
-    blocked === null && problem === null && receive !== undefined && receive > 0;
+    blocked === null &&
+    problem === null &&
+    !overCap &&
+    receive !== undefined &&
+    receive > 0;
 
   return (
     <>
@@ -287,6 +312,22 @@ export function Amount({
             />
           </div>
         </div>
+
+        {capHere !== null && !overCap ? (
+          <p className="small" style={{ marginTop: 10 }}>
+            Up to {cashOut ? "" : country.sym}
+            {fmt(capHere, cashOut ? 0 : 0)} {cashOut ? symbol : ""} per transfer
+            while we are in testing.
+          </p>
+        ) : null}
+
+        {overCap && capHere !== null ? (
+          <p className="body" style={{ marginTop: 12, color: "var(--warn)" }}>
+            That is over the {cashOut ? "" : country.sym}
+            {fmt(capHere, 0)} {cashOut ? symbol : ""} limit we have set for
+            each transfer while we are in testing.
+          </p>
+        ) : null}
 
         {blocked !== null ? (
           <p className="body" style={{ marginTop: 12, color: "var(--warn)" }}>{blocked.text}</p>
@@ -329,7 +370,9 @@ export function Amount({
 
       <div className="foot">
         <button className="btn" type="button" disabled={!ready} onClick={() => onReview(amount)}>
-          {blocked === null
+          {overCap
+            ? "Over the limit"
+            : blocked === null
             ? "Review and lock the price"
             : blocked.action === "switch-network"
               ? "Switch network"

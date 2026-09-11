@@ -193,3 +193,9 @@ export async function verifyAccount(
 
   return { accountName: body.accountName };
 }
+
+export async function readLimits(
+  fetchImpl: Fetch = globalThis.fetch,
+): Promise<{ maxTxUsdt: string }> {
+  return unwrap(await send(fetchImpl, "/api/limits"));
+}

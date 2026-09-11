@@ -25,6 +25,7 @@ const app = createApp({
   client,
   store,
   webhookSecret: config.webhookSecret,
+  maxTxUsdt: config.maxTxUsdt,
   // The mini app is same-origin in production and proxied through Vite in
   // development, so this is normally unset and no CORS headers are sent.
   ...(webOrigin === undefined ? {} : { corsOrigin: webOrigin }),
