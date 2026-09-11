@@ -535,3 +535,18 @@ input:focus { outline: none; }
   text-overflow: ellipsis;
 }
 .picker__caret { font-size: 10px; color: var(--muted); flex: none; }
+
+/* ---- form fields ------------------------------------------------------- */
+
+.field {
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  font: 500 16px var(--ui);
+  color: var(--ink);
+}
+.field:focus { border-color: var(--plum); }
+.field:disabled { opacity: .6; }

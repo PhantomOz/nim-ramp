@@ -11,6 +11,12 @@ import type { PayAccount } from "./buy.js";
  * for itself.
  */
 
+export type Account = {
+  institution: string;
+  accountIdentifier: string;
+  accountName: string;
+};
+
 export type CreateInput = {
   direction: Direction;
   corridor: Corridor;
@@ -18,7 +24,8 @@ export type CreateInput = {
   symbol: TokenSymbol;
   amount: string;
   address?: string;
-  recipient?: { institution: string; accountIdentifier: string; accountName: string };
+  recipient?: Account;
+  refundAccount?: Account;
 };
 
 export type CreatedOrder = {
@@ -38,8 +45,34 @@ type ProviderAccount = {
   amountToTransfer?: string;
 };
 
+const UNREACHABLE =
+  "Could not reach the NimRamp API. Is it running? `pnpm run dev:api`";
+
+/**
+ * Read a response without assuming it is JSON.
+ *
+ * It very often is not. Vite's proxy answers 500 with a zero-byte text/plain
+ * body when the API is down, a gateway answers with HTML, and calling
+ * `.json()` on either throws "Unexpected end of JSON input" — which tells a
+ * user nothing and sends whoever is debugging it looking at the order payload
+ * rather than at the process that is not running.
+ */
 async function unwrap<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as T & { error?: string };
+  const raw = await response.text();
+
+  if (raw.trim() === "") {
+    throw new Error(response.ok ? "the API returned nothing" : UNREACHABLE);
+  }
+
+  let body: T & { error?: string };
+  try {
+    body = JSON.parse(raw) as T & { error?: string };
+  } catch {
+    throw new Error(
+      `the API returned something that is not JSON (${response.status}): ${raw.slice(0, 80)}`,
+    );
+  }
+
   if (!response.ok) {
     // The server's own words. A blank "request failed" tells nobody anything.
     throw new Error(body.error ?? `request failed (${response.status})`);
@@ -47,11 +80,26 @@ async function unwrap<T>(response: Response): Promise<T> {
   return body;
 }
 
+/** Network-level failure, before any response exists. */
+async function send(
+  fetchImpl: Fetch,
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetchImpl(url, init);
+  } catch {
+    // A rejected fetch is the API being unreachable, not an order the rail
+    // declined. Conflating the two sends people to the wrong problem.
+    throw new Error(UNREACHABLE);
+  }
+}
+
 export async function createOrder(
   input: CreateInput,
   fetchImpl: Fetch = globalThis.fetch,
 ): Promise<CreatedOrder> {
-  const response = await fetchImpl("/api/orders", {
+  const response = await send(fetchImpl, "/api/orders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -84,5 +132,38 @@ export async function readOrder(
   ref: string,
   fetchImpl: Fetch = globalThis.fetch,
 ): Promise<{ ref: string; state: State | null; unrecognised?: boolean }> {
-  return unwrap(await fetchImpl(`/api/orders/${ref}`));
+  return unwrap(await send(fetchImpl, `/api/orders/${ref}`));
+}
+
+export type Institution = {
+  name: string;
+  code: string;
+  type: "bank" | "mobile_money";
+};
+
+export async function listInstitutions(
+  corridor: Corridor,
+  fetchImpl: Fetch = globalThis.fetch,
+): Promise<Institution[]> {
+  return unwrap(await send(fetchImpl, `/api/institutions/${corridor}`));
+}
+
+/**
+ * Resolve an account to the name the bank holds for it.
+ *
+ * The rail checks this again at order time, but finding out then means
+ * finding out after the user has agreed to an amount — and for a refund
+ * account, after the money is already in flight.
+ */
+export async function verifyAccount(
+  input: { institution: string; accountIdentifier: string },
+  fetchImpl: Fetch = globalThis.fetch,
+): Promise<{ accountName: string }> {
+  return unwrap(
+    await send(fetchImpl, "/api/verify-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
 }

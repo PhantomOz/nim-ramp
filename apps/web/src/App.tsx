@@ -9,7 +9,8 @@ import type { State } from "@ramp/machine";
 import { connect, getProvider, hostLanguage, type Session } from "@ramp/wallet";
 import { useEffect, useState } from "react";
 
-import { createOrder, readOrder } from "./api.js";
+import { AccountForm } from "./account.js";
+import { type Account, createOrder, readOrder } from "./api.js";
 import { CashinPay, type PayAccount } from "./buy.js";
 import { explainRefusal } from "./explain.js";
 import { Amount, COUNTRY, Home, Intro, Review } from "./flow.js";
@@ -22,7 +23,7 @@ import { useQuote } from "./useQuote.js";
 const SUPPORT = "help@nimramp.app";
 const SEEN_INTRO = "nimramp.seen-intro";
 
-type Step = "intro" | "home" | "amount" | "review" | "cashin_pay";
+type Step = "intro" | "home" | "amount" | "account" | "review" | "cashin_pay";
 
 /** States where something is genuinely in flight and a timeline makes sense. */
 const IN_FLIGHT: State[] = ["submitted", "settling", "stalled"];
@@ -126,7 +127,7 @@ export function App() {
    * the user pays into. Until this succeeds there is nothing to show, and
    * the pay screen says so rather than inventing bank details.
    */
-  async function startCashIn(typed: string) {
+  async function startCashIn(typed: string, refundAccount: Account) {
     setOrderError(null);
     setAccount(null);
     setStep("cashin_pay");
@@ -144,6 +145,9 @@ export function App() {
         symbol,
         amount: typed,
         address: session.address,
+        // Where the money returns if the on-ramp fails. The rail requires it
+        // on a fiat source and refuses the order without one.
+        refundAccount,
       });
       setReference(order.ref);
       setAccount(order.account);
@@ -221,8 +225,20 @@ export function App() {
               // Cash-in has no separate review: the rail's own one-time
               // account carries the locked price, so the pay screen is the
               // review.
+              setStep(cashOut ? "review" : "account");
+            }}
+          />
+        );
+
+      case "account":
+        return (
+          <AccountForm
+            corridor={corridor}
+            purpose={cashOut ? "payout" : "refund"}
+            onBack={() => setStep("amount")}
+            onUse={(acct) => {
               if (cashOut) setStep("review");
-              else void startCashIn(a);
+              else void startCashIn(amount, acct);
             }}
           />
         );

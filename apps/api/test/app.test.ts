@@ -59,6 +59,11 @@ test("creating an order returns the rail's own account details and our reference
       symbol: "USDT",
       amount: "10",
       address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
     }),
   });
 
@@ -81,6 +86,11 @@ test("a response never carries the API key or the webhook secret", async () => {
       symbol: "USDT",
       amount: "10",
       address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
     }),
   });
   expect(await res.text()).not.toContain(SECRET);
@@ -119,6 +129,11 @@ test("status is read back from the rail, not from our own store", async () => {
       symbol: "USDT",
       amount: "10",
       address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
     }),
   });
   const { ref } = (await created.json()) as { ref: string };
@@ -197,8 +212,116 @@ test("our own refusal is not reported as a rail failure", async () => {
       symbol: "USDT",
       amount: "10",
       address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
     }),
   });
 
   expect(res.status).toBe(409);
+});
+
+test("a cash-in without a refund account is refused before the rail sees it", async () => {
+  // The rail requires `source.refundAccount` on a fiat source — it is where
+  // the money goes back to if the on-ramp fails. Sending the order without it
+  // earns "Failed to validate payload", which tells the user nothing.
+  let reached = false;
+  const { app } = deps({
+    client: {
+      createOrder: async () => {
+        reached = true;
+        throw new Error("should not be called");
+      },
+    } as Partial<PaycrestClient>,
+  });
+
+  const res = await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_in",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "10",
+      address: "0xABC0000000000000000000000000000000000001",
+    }),
+  });
+
+  expect(res.status).toBe(400);
+  expect((await res.json()) as { error: string }).toMatchObject({
+    error: expect.stringMatching(/refund/i) as unknown as string,
+  });
+  expect(reached).toBe(false);
+});
+
+test("a cash-in passes the refund account through to the rail", async () => {
+  let sent: Record<string, unknown> | null = null;
+  const { app } = deps({
+    client: {
+      createOrder: async (params: { body: Record<string, unknown> }) => {
+        sent = params.body;
+        return { id: "ord-2", status: "initiated", amount: "10" };
+      },
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  await app.request("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({
+      direction: "cash_in",
+      corridor: "NGN",
+      chain: "polygon",
+      symbol: "USDT",
+      amount: "10",
+      address: "0xABC0000000000000000000000000000000000001",
+      refundAccount: {
+        institution: "GTBINGLA",
+        accountIdentifier: "0123456789",
+        accountName: "ADAEZE OKAFOR",
+      },
+    }),
+  });
+
+  expect(sent).not.toBeNull();
+  expect((sent as unknown as { source: Record<string, unknown> }).source).toMatchObject({
+    type: "fiat",
+    refundAccount: { institution: "GTBINGLA" },
+  });
+});
+
+test("institutions are proxied so the browser never needs the API key", async () => {
+  const { app } = deps({
+    client: {
+      institutions: async () => [
+        { name: "Guaranty Trust Bank", code: "GTBINGLA", type: "bank" },
+      ],
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  const res = await app.request("/api/institutions/NGN");
+  expect(res.status).toBe(200);
+  expect((await res.json()) as unknown[]).toHaveLength(1);
+});
+
+test("an account is verified before we commit an order to it", async () => {
+  const { app } = deps({
+    client: {
+      verifyAccount: async () => "ADAEZE OKAFOR",
+    } as unknown as Partial<PaycrestClient>,
+  });
+
+  const res = await app.request("/api/verify-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({ institution: "GTBINGLA", accountIdentifier: "0123456789" }),
+  });
+
+  expect(res.status).toBe(200);
+  expect((await res.json()) as { accountName: string }).toMatchObject({
+    accountName: "ADAEZE OKAFOR",
+  });
 });

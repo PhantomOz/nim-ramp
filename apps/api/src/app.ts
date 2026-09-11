@@ -10,6 +10,7 @@ import type { State } from "@ramp/machine";
 import { mapStatus, PaycrestError, type PaycrestClient } from "@ramp/rails";
 import { verifySignature } from "@ramp/rails/webhook";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 import { newReference, type Store } from "./store.js";
 
@@ -22,6 +23,8 @@ export type AppDeps = {
   webhookSecret: string;
   /** Called when a webhook moves an order. Somewhere to hang notifications. */
   onStatus: (update: { ref: string; orderId: string; state: State | null }) => void;
+  /** Origin allowed to call us cross-site. Same-origin in production. */
+  corsOrigin?: string;
 };
 
 type CreateBody = {
@@ -33,8 +36,21 @@ type CreateBody = {
   /** cash_in: where the stablecoin lands. */
   address?: string;
   /** cash_out: where the money lands. */
-  recipient?: { institution?: string; accountIdentifier?: string; accountName?: string };
+  recipient?: Account;
+  /** cash_in: where the money goes back to if the on-ramp fails. */
+  refundAccount?: Account;
 };
+
+type Account = {
+  institution?: string;
+  accountIdentifier?: string;
+  accountName?: string;
+};
+
+const isAccount = (a: Account | undefined): a is Required<Account> =>
+  typeof a?.institution === "string" &&
+  typeof a.accountIdentifier === "string" &&
+  typeof a.accountName === "string";
 
 const isDirection = (v: unknown): v is Direction =>
   v === "cash_in" || v === "cash_out";
@@ -46,6 +62,12 @@ const isSymbol = (v: unknown): v is TokenSymbol => v === "USDT" || v === "USDC";
 
 export function createApp(deps: AppDeps) {
   const app = new Hono();
+
+  // Before the routes. Hono runs middleware in registration order, so
+  // registering this afterwards silently does nothing at all.
+  if (deps.corsOrigin !== undefined) {
+    app.use("/api/*", cors({ origin: deps.corsOrigin }));
+  }
 
   /**
    * Create a real order on the rail.
@@ -77,7 +99,16 @@ export function createApp(deps: AppDeps) {
     if (cashIn && typeof body.address !== "string") {
       return c.json({ error: "cash_in needs a destination address" }, 400);
     }
-    if (!cashIn && typeof body.recipient?.accountIdentifier !== "string") {
+    // The rail requires a refund account on a fiat source — it is where the
+    // money returns if the on-ramp fails. Omitting it earns a bare "Failed to
+    // validate payload" from the rail, which tells the user nothing.
+    if (cashIn && !isAccount(body.refundAccount)) {
+      return c.json(
+        { error: "cash_in needs a refund account: where the money goes back if it fails" },
+        400,
+      );
+    }
+    if (!cashIn && !isAccount(body.recipient)) {
       return c.json({ error: "cash_out needs a recipient account" }, 400);
     }
 
@@ -86,7 +117,11 @@ export function createApp(deps: AppDeps) {
           amount,
           amountIn: "fiat",
           senderFeePercent: SENDER_FEE_PERCENT,
-          source: { type: "fiat", currency: corridor },
+          source: {
+            type: "fiat",
+            currency: corridor,
+            refundAccount: body.refundAccount,
+          },
           destination: {
             type: "crypto",
             currency: symbol,
@@ -215,6 +250,63 @@ export function createApp(deps: AppDeps) {
     // rail nothing. An unknown order id is our problem to investigate, not
     // theirs to redeliver.
     return c.json({ ok: true });
+  });
+
+  /**
+   * The corridor's payout destinations. Proxied rather than called from the
+   * browser because the endpoint needs the API key — and because the list
+   * differs sharply by corridor: Nigeria is 171 banks and no mobile money,
+   * Uganda is two mobile-money providers and no banks.
+   */
+  app.get("/api/institutions/:corridor", async (c) => {
+    const corridor = c.req.param("corridor");
+    if (!isCorridor(corridor)) return c.json({ error: "bad corridor" }, 400);
+
+    try {
+      return c.json(await deps.client.institutions(corridor));
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "the rail declined" },
+        502,
+      );
+    }
+  });
+
+  /**
+   * Check an account resolves to a real name before anyone commits to it.
+   *
+   * The rail verifies this itself at order time, but finding out then means
+   * finding out after the user has agreed to an amount.
+   */
+  app.post("/api/verify-account", async (c) => {
+    let body: { institution?: string; accountIdentifier?: string };
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ error: "body must be JSON" }, 400);
+    }
+
+    if (
+      typeof body.institution !== "string" ||
+      typeof body.accountIdentifier !== "string"
+    ) {
+      return c.json({ error: "institution and accountIdentifier are required" }, 400);
+    }
+
+    try {
+      const accountName = await deps.client.verifyAccount({
+        institution: body.institution,
+        accountIdentifier: body.accountIdentifier,
+      });
+      return c.json({ accountName });
+    } catch (error) {
+      // A failed lookup is a normal answer here, not a server fault: the
+      // number is probably wrong.
+      return c.json(
+        { error: error instanceof Error ? error.message : "could not check that account" },
+        422,
+      );
+    }
   });
 
   app.get("/api/health", (c) => c.json({ ok: true }));

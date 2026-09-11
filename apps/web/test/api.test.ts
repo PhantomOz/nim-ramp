@@ -3,7 +3,12 @@ import { expect, test, vi } from "vitest";
 import { createOrder, readOrder } from "../src/api.js";
 
 const okResponse = (body: unknown, status = 200) =>
-  ({ ok: status < 400, status, json: async () => body }) as Response;
+  ({
+    ok: status < 400,
+    status,
+    text: async () => JSON.stringify(body),
+    json: async () => body,
+  }) as Response;
 
 test("creating an order posts what the API expects", async () => {
   const fetchMock = vi.fn().mockResolvedValue(
@@ -60,4 +65,42 @@ test("reading an order returns the state the API resolved", async () => {
     state: "settling",
   });
   expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/orders/NR-ABCD");
+});
+
+test("an empty response says the API is unreachable, not 'Unexpected end of JSON input'", async () => {
+  // Exactly what Vite's proxy returns when the API is not running: 500,
+  // text/plain, zero bytes. Calling .json() on that throws a parse error that
+  // tells the user nothing and sends the developer looking in the wrong place.
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: false,
+    status: 500,
+    text: async () => "",
+    json: async () => {
+      throw new SyntaxError("Unexpected end of JSON input");
+    },
+  } as unknown as Response);
+
+  await expect(readOrder("NR-ABCD", fetchMock)).rejects.toThrow(
+    /could not reach the NimRamp API/i,
+  );
+});
+
+test("an HTML error page is reported as such rather than parsed", async () => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: false,
+    status: 502,
+    text: async () => "<html><body>Bad Gateway</body></html>",
+    json: async () => {
+      throw new SyntaxError("Unexpected token <");
+    },
+  } as unknown as Response);
+
+  await expect(readOrder("NR-ABCD", fetchMock)).rejects.toThrow(/502/);
+});
+
+test("a network failure is not mistaken for a rejected order", async () => {
+  const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+  await expect(readOrder("NR-ABCD", fetchMock)).rejects.toThrow(
+    /could not reach the NimRamp API/i,
+  );
 });

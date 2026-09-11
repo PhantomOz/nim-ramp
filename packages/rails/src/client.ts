@@ -136,8 +136,15 @@ export function createClient(config: ClientConfig) {
 
     if (!response.ok || envelope.status === "error") {
       const detail = envelope.data as { field?: string; message?: string } | null;
+      // "Failed to validate payload" on its own says nothing. The field and
+      // its reason live in `data`, so they belong in the message rather than
+      // only on a property nobody reads.
+      const because =
+        detail?.field !== undefined || detail?.message !== undefined
+          ? ` — ${detail?.field ?? "?"}: ${detail?.message ?? "invalid"}`
+          : "";
       throw new PaycrestError(
-        envelope.message ?? `rail returned ${response.status}`,
+        `${envelope.message ?? `rail returned ${response.status}`}${because}`,
         response.status,
         detail?.field,
       );

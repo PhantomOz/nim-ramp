@@ -1,6 +1,5 @@
 import { serve } from "@hono/node-server";
 import { createClient } from "@ramp/rails";
-import { cors } from "hono/cors";
 
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
@@ -20,20 +19,21 @@ const client = createClient({
 
 const store = openStore(process.env["ORDERS_PATH"] ?? ".nimramp/orders.jsonl");
 
+const webOrigin = process.env["WEB_ORIGIN"];
+
 const app = createApp({
   client,
   store,
   webhookSecret: config.webhookSecret,
+  // The mini app is same-origin in production and proxied through Vite in
+  // development, so this is normally unset and no CORS headers are sent.
+  ...(webOrigin === undefined ? {} : { corsOrigin: webOrigin }),
   onStatus: (update) => {
     // Somewhere to hang a push notification later. Logged for now so a
     // support conversation can start from a reference.
     console.log(`[order] ${update.ref} → ${update.state ?? "unrecognised"}`);
   },
 });
-
-// The mini app is served from a different origin in development — a tunnel
-// against a local API. Same-origin in production, where this is a no-op.
-app.use("/api/*", cors({ origin: process.env["WEB_ORIGIN"] ?? "*" }));
 
 console.log(
   [
