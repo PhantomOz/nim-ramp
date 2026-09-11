@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { signWithEvm, signWithNimiq } from "../src/signing.js";
+import { signTypedData, signWithEvm, signWithNimiq } from "../src/signing.js";
 
 const ADDRESS = "0xABC0000000000000000000000000000000000001";
 
@@ -46,4 +46,27 @@ test("a successful Nimiq signature comes back with its public key", async () => 
     signature: "0xsig",
     publicKey: "0xpub",
   });
+});
+
+test("typed-data signing reports its own availability", async () => {
+  const provider = { request: async () => "0xtypedsig" };
+  await expect(signTypedData(provider, ADDRESS, { a: 1 })).resolves.toEqual({
+    ok: true,
+    via: "eth_signTypedData_v4",
+    signature: "0xtypedsig",
+  });
+});
+
+test("a wallet without typed-data signing says so rather than throwing", async () => {
+  // This gates every gasless route: permit, EIP-3009 and Polygon's native
+  // meta-transaction all need an EIP-712 signature. If Nimiq Pay cannot
+  // produce one, sponsoring the fee is off the table and the answer is POL.
+  const provider = {
+    request: async () => {
+      throw new Error("method eth_signTypedData_v4 not supported");
+    },
+  };
+  const result = await signTypedData(provider, ADDRESS, { a: 1 });
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.reason).toMatch(/not supported/);
 });

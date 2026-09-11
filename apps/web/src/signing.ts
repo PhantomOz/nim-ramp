@@ -10,6 +10,7 @@
 
 export type SignAttempt =
   | { ok: true; via: "personal_sign"; signature: string }
+  | { ok: true; via: "eth_signTypedData_v4"; signature: string }
   | { ok: true; via: "nimiq"; signature: string; publicKey: string }
   | { ok: false; reason: string };
 
@@ -68,6 +69,34 @@ export async function signWithNimiq(
       signature: signed.signature,
       publicKey: signed.publicKey,
     };
+  } catch (error) {
+    return { ok: false, reason: reason(error) };
+  }
+}
+
+/**
+ * Can this wallet produce an EIP-712 signature?
+ *
+ * The question gates every gasless route. Sponsoring an EOA's transfer means
+ * a meta-transaction — EIP-2612 permit, EIP-3009, or Polygon's native
+ * executeMetaTransaction — and all three are a typed-data signature plus a
+ * relayer that pays the fee. A 4337 paymaster cannot help here, because the
+ * sender is an ordinary account rather than a smart one.
+ *
+ * If this answers no, sponsoring is off the table and the remaining options
+ * are seeding the gas token or asking users to hold it.
+ */
+export async function signTypedData(
+  provider: EvmProvider,
+  address: string,
+  typedData: unknown,
+): Promise<SignAttempt> {
+  try {
+    const signature = (await provider.request({
+      method: "eth_signTypedData_v4",
+      params: [address, JSON.stringify(typedData)],
+    })) as string;
+    return { ok: true, via: "eth_signTypedData_v4", signature };
   } catch (error) {
     return { ok: false, reason: reason(error) };
   }
