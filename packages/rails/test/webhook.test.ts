@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { expect, test } from "vitest";
 
-import { verifySignature } from "../src/index.js";
+import { verifySignature } from "../src/webhook.js";
 
 const SECRET = "test-api-secret";
 const BODY = JSON.stringify({
