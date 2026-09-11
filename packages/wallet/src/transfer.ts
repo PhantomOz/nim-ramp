@@ -2,6 +2,7 @@ import { type ChainSlug, chainBySlug, toMinor, tokenOn, type TokenSymbol } from 
 import { encodeFunctionData, isAddress } from "viem";
 
 import { currentChain, type Eip1193, WalletError } from "./connect.js";
+import { checkGas } from "./gas.js";
 
 export const ERC20_ABI = [
   {
@@ -69,6 +70,19 @@ export async function sendToken(
   if (present?.slug !== chain.slug) {
     throw new WalletError(
       `wallet is on ${present?.name ?? "an unsupported chain"}; this transfer is for ${chain.name}`,
+    );
+  }
+
+  // Gas last, once everything else is known good. A wallet holding
+  // stablecoin and no native token is the ordinary case here — a cash-in puts
+  // the one there without the other — and "insufficient gas" from the wallet
+  // is a dead end the user cannot act on.
+  const gas = await checkGas(provider, { chain: transfer.chain, from: transfer.from });
+  if (!gas.ok) {
+    throw new WalletError(
+      `Not enough ${gas.symbol} to pay the network fee on ${chain.name}. ` +
+        `This transfer needs about ${gas.needed} ${gas.symbol} and the wallet has ${gas.have}. ` +
+        `${gas.symbol} pays the fee; your ${transfer.symbol} is untouched.`,
     );
   }
 

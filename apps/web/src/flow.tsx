@@ -491,7 +491,12 @@ export function Review({
         </div>
 
         {error !== null ? (
-          <p className="body" style={{ marginTop: 12, color: "var(--fail)" }}>{error}</p>
+          <div className="section">
+            <div className="label">Couldn&rsquo;t send it</div>
+            <div className="panel panel--edge" style={{ color: "var(--fail)", marginTop: 8 }}>
+              <p className="panel__detail" style={{ marginTop: 0 }}>{error}</p>
+            </div>
+          </div>
         ) : null}
 
         <p className="small" style={{ marginTop: 14 }}>
