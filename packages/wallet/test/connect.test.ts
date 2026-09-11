@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import {
   connect,
   currentSession,
+  liveAccount,
   getProvider,
   WalletError,
   type Eip1193,
@@ -120,4 +121,37 @@ test("re-reading does not prompt the user", async () => {
   });
   await currentSession(provider);
   expect(seen.map((s) => s.method)).not.toContain("eth_requestAccounts");
+});
+
+test("a provider that cannot answer eth_accounts is unknown, not disconnected", async () => {
+  // Not every injected provider implements eth_accounts. Reading a thrown
+  // method as "the user is not connected" turns a wallet we simply could not
+  // question into a blocked transfer — the same mistake as reading "no
+  // provider available" as "unsupported".
+  const provider: Eip1193 = {
+    request: async ({ method }) => {
+      if (method === "eth_accounts") throw new Error("method not supported");
+      if (method === "eth_chainId") return "0x89";
+      throw new Error(`unstubbed ${method}`);
+    },
+  };
+
+  expect(await liveAccount(provider)).toEqual({ kind: "unknown" });
+});
+
+test("an empty account list is a definite no", async () => {
+  const { provider } = fakeWallet({ eth_accounts: [], eth_chainId: "0x89" });
+  expect(await liveAccount(provider)).toEqual({ kind: "none" });
+});
+
+test("an answered account list is live", async () => {
+  const { provider } = fakeWallet({
+    eth_accounts: ["0xDEF0000000000000000000000000000000000002"],
+    eth_chainId: "0x89",
+  });
+  const result = await liveAccount(provider);
+  expect(result.kind).toBe("live");
+  if (result.kind === "live") {
+    expect(result.session.address).toBe("0xDEF0000000000000000000000000000000000002");
+  }
 });

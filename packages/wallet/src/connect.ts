@@ -54,29 +54,52 @@ export async function switchChain(
 }
 
 /**
- * The account and chain the wallet is on *right now*.
+ * What the wallet says about itself right now.
  *
- * `connect()` captures a session once. People switch accounts and networks in
- * Nimiq Pay afterwards, and on a cash-out a stale address is not cosmetic:
- * the stablecoin leaves whichever account the wallet is on now, while the
- * refund address would still name the one captured earlier — so a payout that
- * fails returns the money to an account the sender has moved on from.
- *
- * Uses `eth_accounts`, which reports what is already authorised without
- * prompting. `eth_requestAccounts` raises a dialog, and doing that silently
- * before every order would be an ambush.
- *
- * Returns null when nothing is connected.
+ * Three answers, not two. `none` means the wallet told us nothing is
+ * connected. `unknown` means we could not ask — not every injected provider
+ * implements `eth_accounts`, and reading a thrown method as "the user is not
+ * connected" turns a wallet we merely failed to question into a blocked
+ * transfer.
  */
+export type LiveAccount =
+  | { kind: "live"; session: Session }
+  | { kind: "none" }
+  | { kind: "unknown" };
+
+/**
+ * Read the live account and chain without prompting.
+ *
+ * `eth_accounts` reports what is already authorised. `eth_requestAccounts`
+ * raises a dialog, and raising one silently before every order would be an
+ * ambush.
+ */
+export async function liveAccount(provider: Eip1193): Promise<LiveAccount> {
+  let accounts: string[];
+  try {
+    accounts = (await provider.request({ method: "eth_accounts" })) as string[];
+  } catch {
+    return { kind: "unknown" };
+  }
+
+  const address = accounts?.[0];
+  if (address === undefined) return { kind: "none" };
+
+  let chain;
+  try {
+    chain = await currentChain(provider);
+  } catch {
+    return { kind: "unknown" };
+  }
+  if (chain === null) return { kind: "unknown" };
+
+  return { kind: "live", session: { address, chain } };
+}
+
+/** Convenience for callers that only care about a definite live session. */
 export async function currentSession(provider: Eip1193): Promise<Session | null> {
-  const accounts = (await provider.request({ method: "eth_accounts" })) as string[];
-  const address = accounts[0];
-  if (address === undefined) return null;
-
-  const chain = await currentChain(provider);
-  if (chain === null) return null;
-
-  return { address, chain };
+  const result = await liveAccount(provider);
+  return result.kind === "live" ? result.session : null;
 }
 
 /**

@@ -8,7 +8,7 @@ import {
 import type { State } from "@ramp/machine";
 import {
   connect,
-  currentSession,
+  liveAccount,
   getProvider,
   hostLanguage,
   sendToken,
@@ -88,9 +88,14 @@ export function App() {
     }
 
     const resync = () => {
-      void currentSession(provider)
-        .then((live) => setSession(live))
-        .catch(() => setSession(null));
+      void liveAccount(provider)
+        .then((result) => {
+          // Only a definite "none" clears the session. An unanswerable read
+          // must not log someone out of a wallet they are still using.
+          if (result.kind === "live") setSession(result.session);
+          else if (result.kind === "none") setSession(null);
+        })
+        .catch(() => undefined);
     };
 
     const injected = provider as unknown as {
@@ -205,7 +210,7 @@ export function App() {
     setStep("cashin_pay");
 
     try {
-      const live = await currentSession(getProvider());
+      const live = await resolveWallet();
       if (live === null) {
         setOrderError(
           "Connect your Nimiq Pay wallet first — the stablecoin needs somewhere to land.",
@@ -240,6 +245,24 @@ export function App() {
    * approval dialog for the transfer, which we cannot bypass — that is the
    * property that keeps us out of the custody path.
    */
+  /**
+   * The wallet to build an order against.
+   *
+   * Prefers what the wallet reports now; falls back to the session from
+   * connect when the provider cannot answer. Only a definite empty account
+   * list counts as disconnected.
+   */
+  async function resolveWallet(): Promise<Session | null> {
+    try {
+      const result = await liveAccount(getProvider());
+      if (result.kind === "live") return result.session;
+      if (result.kind === "none") return null;
+      return session; // unknown — keep what we have
+    } catch {
+      return session;
+    }
+  }
+
   async function startCashOut() {
     if (recipient === null) {
       setOrderError("Choose where the money should go first.");
@@ -251,10 +274,11 @@ export function App() {
 
     try {
       // Read the wallet now rather than trusting the session from connect
-      // time. The refund address has to be the account the stablecoin
-      // actually leaves, or a failed payout returns it somewhere the sender
-      // is no longer using.
-      const live = await currentSession(getProvider());
+      // time: the refund address has to be the account the stablecoin
+      // actually leaves. But a provider that cannot answer `eth_accounts` is
+      // not a disconnected one, so fall back to the session we already hold
+      // rather than blocking a wallet we merely failed to question.
+      const live = await resolveWallet();
       if (live === null) {
         setOrderError("Your wallet is not connected. Open this inside Nimiq Pay and connect.");
         return;
@@ -368,10 +392,10 @@ export function App() {
             onBack={() => setStep("home")}
             onReview={(a) => {
               setAmount(a);
-              // Cash-in has no separate review: the rail's own one-time
-              // account carries the locked price, so the pay screen is the
-              // review.
-              setStep(cashOut ? "review" : "account");
+              // Both directions need an account first: where the money goes
+              // on a cash-out, where it comes back on a cash-in. Cash-out was
+              // jumping straight to review and skipping the payout step.
+              setStep("account");
             }}
           />
         );
