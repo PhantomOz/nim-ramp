@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { serve } from "@hono/node-server";
 import { createClient } from "@ramp/rails";
 
@@ -17,7 +19,19 @@ const client = createClient({
   enabledCorridors: config.enabledCorridors,
 });
 
-const store = openStore(process.env["ORDERS_PATH"] ?? ".nimramp/orders.jsonl");
+/*
+ * Resolved against this file, not the working directory.
+ *
+ * A relative path meant the order log landed wherever the server happened to
+ * be started from — `apps/api/.nimramp/` when run from the package, the repo
+ * root when run from there. Two different audit trails, and a reference that
+ * resolves or does not depending on how someone launched the process.
+ */
+const ordersPath =
+  process.env["ORDERS_PATH"] ??
+  fileURLToPath(new URL("../../../.nimramp/orders.jsonl", import.meta.url));
+
+const store = openStore(ordersPath);
 
 const webOrigin = process.env["WEB_ORIGIN"];
 
@@ -42,6 +56,7 @@ console.log(
     `  corridors : ${config.enabledCorridors.join(", ") || "none enabled"}`,
     `  cap       : ${config.maxTxUsdt} USDT per transfer`,
     `  kill      : ${config.killSwitch ? "ON — refusing every order" : "off"}`,
+    `  orders    : ${ordersPath}`,
   ].join("\n"),
 );
 
