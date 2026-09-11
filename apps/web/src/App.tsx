@@ -15,6 +15,7 @@ import { explainRefusal } from "./explain.js";
 import { Amount, COUNTRY, Home, Intro, Review } from "./flow.js";
 import { HostPanel } from "./HostPanel.js";
 import { Progress } from "./progress.js";
+import { ChainSheet, CountrySheet } from "./sheets.js";
 import { StatusScreen } from "./screens.js";
 import { useQuote } from "./useQuote.js";
 
@@ -47,6 +48,7 @@ export function App() {
   const [account, setAccount] = useState<PayAccount | null>(null);
   const [reference, setReference] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<"country" | "chain" | null>(null);
 
   const language = hostLanguage();
   useEffect(() => {
@@ -199,8 +201,8 @@ export function App() {
               setStep("amount");
             }}
             onConnect={onConnect}
-            onChangeChain={setChain}
-            onChangeCorridor={setCorridor}
+            onOpenChain={() => setSheet("chain")}
+            onOpenCountry={() => setSheet("country")}
           />
         );
 
@@ -269,6 +271,21 @@ export function App() {
         </p>
       ) : null}
       {body}
+
+      {sheet === "country" ? (
+        <CountrySheet
+          current={corridor}
+          onPick={setCorridor}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
+      {sheet === "chain" ? (
+        <ChainSheet
+          current={chain}
+          onPick={setChain}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
     </div>
   );
 }

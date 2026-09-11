@@ -1,5 +1,4 @@
 import {
-  CHAINS,
   type Chain,
   type Corridor,
   type Direction,
@@ -8,6 +7,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { breakdown, SENDER_FEE_PERCENT } from "./breakdown.js";
+import { ChainMark, FLAG } from "./marks.js";
 import type { Explanation } from "./explain.js";
 
 /**
@@ -118,8 +118,8 @@ export function Home({
   address,
   onPick,
   onConnect,
-  onChangeChain,
-  onChangeCorridor,
+  onOpenChain,
+  onOpenCountry,
 }: {
   corridor: Corridor;
   chain: Chain;
@@ -129,35 +129,36 @@ export function Home({
   address: string | null;
   onPick: (d: Direction) => void;
   onConnect: () => void;
-  onChangeChain: (c: Chain) => void;
-  onChangeCorridor: (c: Corridor) => void;
+  onOpenChain: () => void;
+  onOpenCountry: () => void;
 }) {
   const country = COUNTRY[corridor];
 
   return (
     <>
       <div className="scroll">
-        {connected && address !== null ? (
-          <div className="row" style={{ alignItems: "center" }}>
-            <span className="small">
-              Nimiq Pay wallet · {address.slice(0, 6)}…{address.slice(-4)}
+        {/* Country and network sit together, above the price they both
+            determine. Country was at the foot of the screen, below the two
+            buttons whose entire copy depends on it. */}
+        <div className="pickers">
+          <button type="button" className="picker" onClick={onOpenCountry}>
+            <span className="picker__flag" aria-hidden="true">{FLAG[corridor]}</span>
+            <span className="picker__text">
+              <span className="picker__k">Country</span>
+              <span className="picker__v">{country.name}</span>
             </span>
-            <select
-              id="home-chain"
-              className="unit"
-              value={chain.slug}
-              onChange={(e) => {
-                const next = CHAINS.find((c) => c.slug === e.target.value);
-                if (next !== undefined) onChangeChain(next);
-              }}
-              aria-label="Network"
-            >
-              {CHAINS.map((c) => (
-                <option key={c.slug} value={c.slug}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        ) : null}
+            <span className="picker__caret" aria-hidden="true">▼</span>
+          </button>
+
+          <button type="button" className="picker" onClick={onOpenChain}>
+            <ChainMark slug={chain.slug} size={19} />
+            <span className="picker__text">
+              <span className="picker__k">Network</span>
+              <span className="picker__v">{chain.name}</span>
+            </span>
+            <span className="picker__caret" aria-hidden="true">▼</span>
+          </button>
+        </div>
 
         <div className="pricecard">
           <div className="label">Today&rsquo;s price</div>
@@ -191,21 +192,11 @@ export function Home({
           <p className="choice__note">Pay by bank transfer. Lands in your wallet.</p>
         </button>
 
-        <div className="section">
-          <div className="label">Country</div>
-          <select
-            id="home-corridor"
-            className="unit"
-            style={{ marginTop: 8 }}
-            value={corridor}
-            onChange={(e) => onChangeCorridor(e.target.value as Corridor)}
-            aria-label="Country"
-          >
-            {(Object.keys(COUNTRY) as Corridor[]).map((c) => (
-              <option key={c} value={c}>{COUNTRY[c].name}</option>
-            ))}
-          </select>
-        </div>
+        {connected && address !== null ? (
+          <p className="small" style={{ marginTop: 16 }}>
+            Nimiq Pay wallet · {address.slice(0, 6)}…{address.slice(-4)}
+          </p>
+        ) : null}
       </div>
 
       {!connected ? (

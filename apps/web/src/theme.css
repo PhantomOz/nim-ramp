@@ -427,3 +427,111 @@ input:focus { outline: none; }
 .details__row--last { border-bottom: 0; }
 .details__k { color: var(--muted); }
 .details__v { font-weight: 600; }
+
+/* ---- bottom sheets ----------------------------------------------------- */
+
+.sheet__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 27, 46, .45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 30;
+  animation: nrFade .2s;
+}
+.sheet {
+  background: var(--paper);
+  border-radius: 22px 22px 0 0;
+  padding: 18px 20px 30px;
+  width: 100%;
+  max-width: 430px;
+  box-sizing: border-box;
+  animation: nrRise .28s ease-out;
+  max-height: 80dvh;
+  overflow: auto;
+}
+.sheet__title { font: 600 18px var(--ui); margin: 0; }
+.sheet__detail {
+  font: 400 13px/1.4 var(--ui);
+  color: var(--muted);
+  margin: 4px 0 0;
+  text-wrap: pretty;
+}
+.sheet__list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.sheet__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid rgba(42, 27, 46, .12);
+  border-radius: 14px;
+  padding: 13px 14px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.sheet__row:hover { border-color: var(--plum); }
+.sheet__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sheet__name { font: 600 16px var(--ui); }
+.sheet__sub { font: 400 13px var(--ui); color: var(--muted); margin-top: 2px; }
+.sheet__tick {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--plum);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 12px var(--ui);
+  flex: none;
+}
+
+/* ---- badges ------------------------------------------------------------ */
+
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+}
+.badge--country { width: 30px; height: 30px; font-size: 19px; line-height: 1; }
+.badge--chain {
+  width: 34px;
+  height: 34px;
+  background: var(--paper);
+  border: 1px solid rgba(42, 27, 46, .12);
+}
+
+/* ---- the picker row at the top of home --------------------------------- */
+
+.pickers { display: flex; gap: 8px; }
+.picker {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--ink);
+  text-align: left;
+}
+.picker:hover { border-color: var(--plum); }
+.picker__flag { font-size: 19px; line-height: 1; flex: none; }
+.picker__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.picker__k { font: 600 10px/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.picker__v {
+  font: 600 14px/1.2 var(--ui);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker__caret { font-size: 10px; color: var(--muted); flex: none; }
