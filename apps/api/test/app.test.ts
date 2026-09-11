@@ -325,3 +325,54 @@ test("an account is verified before we commit an order to it", async () => {
     accountName: "ADAEZE OKAFOR",
   });
 });
+
+test("an unavailable verifier is distinguished from a rejected account", async () => {
+  // Paycrest's verify-account is answering 504 with a Cloudflare HTML page.
+  // "We cannot check right now" and "that account is wrong" are different
+  // answers, and collapsing them either blocks every transfer during an
+  // outage or waves a mistyped account number through.
+  const { PaycrestError } = await import("@ramp/rails");
+
+  const unavailable = createApp({
+    client: {
+      verifyAccount: async () => {
+        throw new PaycrestError("rail returned a non-JSON body (504): <!DOCTYPE", 504);
+      },
+    } as unknown as PaycrestClient,
+    store: { put: () => undefined, byRef: () => undefined, byOrderId: () => undefined },
+    webhookSecret: SECRET,
+    onStatus: () => undefined,
+  });
+
+  const res = await unavailable.request("/api/verify-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({ institution: "GTBINGLA", accountIdentifier: "0123456789" }),
+  });
+
+  expect(res.status).toBe(503);
+  expect((await res.json()) as { kind: string }).toMatchObject({ kind: "unavailable" });
+});
+
+test("a genuinely wrong account is still a rejection", async () => {
+  const { PaycrestError } = await import("@ramp/rails");
+  const rejecting = createApp({
+    client: {
+      verifyAccount: async () => {
+        throw new PaycrestError("failed to verify account with any provider", 400);
+      },
+    } as unknown as PaycrestClient,
+    store: { put: () => undefined, byRef: () => undefined, byOrderId: () => undefined },
+    webhookSecret: SECRET,
+    onStatus: () => undefined,
+  });
+
+  const res = await rejecting.request("/api/verify-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body({ institution: "GTBINGLA", accountIdentifier: "0000000000" }),
+  });
+
+  expect(res.status).toBe(422);
+  expect((await res.json()) as { kind: string }).toMatchObject({ kind: "rejected" });
+});

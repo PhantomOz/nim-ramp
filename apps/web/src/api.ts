@@ -155,15 +155,41 @@ export async function listInstitutions(
  * finding out after the user has agreed to an amount — and for a refund
  * account, after the money is already in flight.
  */
+/** Raised by `verifyAccount` so callers can tell an outage from a rejection. */
+export class VerifyError extends Error {
+  constructor(
+    message: string,
+    readonly kind: "unavailable" | "rejected",
+  ) {
+    super(message);
+    this.name = "VerifyError";
+  }
+}
+
 export async function verifyAccount(
   input: { institution: string; accountIdentifier: string },
   fetchImpl: Fetch = globalThis.fetch,
 ): Promise<{ accountName: string }> {
-  return unwrap(
-    await send(fetchImpl, "/api/verify-account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    }),
-  );
+  const response = await send(fetchImpl, "/api/verify-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  const raw = await response.text();
+  let body: { accountName?: string; error?: string; kind?: string } = {};
+  try {
+    body = JSON.parse(raw) as typeof body;
+  } catch {
+    throw new VerifyError("the checker answered with something unreadable", "unavailable");
+  }
+
+  if (!response.ok || body.accountName === undefined) {
+    throw new VerifyError(
+      body.error ?? "could not check that account",
+      body.kind === "unavailable" ? "unavailable" : "rejected",
+    );
+  }
+
+  return { accountName: body.accountName };
 }

@@ -1,7 +1,13 @@
 import type { Corridor } from "@ramp/core";
 import { useEffect, useState } from "react";
 
-import { type Account, type Institution, listInstitutions, verifyAccount } from "./api.js";
+import {
+  type Account,
+  type Institution,
+  listInstitutions,
+  verifyAccount,
+  VerifyError,
+} from "./api.js";
 import { COUNTRY, PARTNER } from "./flow.js";
 
 /**
@@ -35,6 +41,7 @@ export function AccountForm({
   const [resolved, setResolved] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unchecked, setUnchecked] = useState(false);
 
   useEffect(() => {
     let stop = false;
@@ -59,6 +66,7 @@ export function AccountForm({
   // Reset a resolved name whenever the account it belonged to changes.
   useEffect(() => {
     setResolved(null);
+    setUnchecked(false);
   }, [institution, identifier]);
 
   async function check() {
@@ -72,7 +80,16 @@ export function AccountForm({
       setResolved(accountName);
     } catch (e) {
       setResolved(null);
-      setError(e instanceof Error ? e.message : "could not check that account");
+      // An unreachable checker must not block the transfer: the rail verifies
+      // the account again when the order is created. A wrong number, though,
+      // is a wrong number.
+      if (e instanceof VerifyError && e.kind === "unavailable") {
+        setUnchecked(true);
+        setError(null);
+      } else {
+        setUnchecked(false);
+        setError(e instanceof Error ? e.message : "could not check that account");
+      }
     } finally {
       setChecking(false);
     }
@@ -148,13 +165,41 @@ export function AccountForm({
           </div>
         ) : null}
 
+        {unchecked ? (
+          <div className="panel panel--edge" style={{ color: "var(--warn-2)" }}>
+            <p className="panel__lead">We couldn&rsquo;t check the name just now</p>
+            <p className="panel__detail">
+              {PARTNER}&rsquo;s name checker isn&rsquo;t answering. You can carry
+              on — they check the account again when the transfer starts — but
+              read the number back to yourself first, because nothing has
+              confirmed it yet.
+            </p>
+          </div>
+        ) : null}
+
         {error !== null ? (
           <p className="body" style={{ marginTop: 12, color: "var(--fail)" }}>{error}</p>
         ) : null}
       </div>
 
       <div className="foot">
-        {resolved === null ? (
+        {resolved === null && unchecked ? (
+          <button
+            className="btn"
+            type="button"
+            onClick={() =>
+              onUse({
+                institution,
+                accountIdentifier: identifier.trim(),
+                // Empty rather than invented: nothing confirmed a name, and
+                // the rail will resolve it when the order is created.
+                accountName: "",
+              })
+            }
+          >
+            Use it anyway
+          </button>
+        ) : resolved === null ? (
           <button
             className="btn"
             type="button"

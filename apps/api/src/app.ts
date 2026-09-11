@@ -300,11 +300,20 @@ export function createApp(deps: AppDeps) {
       });
       return c.json({ accountName });
     } catch (error) {
-      // A failed lookup is a normal answer here, not a server fault: the
-      // number is probably wrong.
+      const message =
+        error instanceof Error ? error.message : "could not check that account";
+
+      // "We cannot check right now" is not "that account is wrong". Paycrest's
+      // verifier answers 504 during an outage, and treating that as a rejected
+      // account would block every transfer until it came back. Conversely,
+      // treating a real rejection as an outage waves a mistyped number
+      // through. The rail re-checks at order time either way.
+      const unavailable =
+        error instanceof PaycrestError && (error.status >= 500 || error.status === 0);
+
       return c.json(
-        { error: error instanceof Error ? error.message : "could not check that account" },
-        422,
+        { error: message, kind: unavailable ? "unavailable" : "rejected" },
+        unavailable ? 503 : 422,
       );
     }
   });
