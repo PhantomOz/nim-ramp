@@ -9,6 +9,7 @@ import type { State } from "@ramp/machine";
 import { connect, getProvider, hostLanguage, type Session } from "@ramp/wallet";
 import { useEffect, useState } from "react";
 
+import { createOrder, readOrder } from "./api.js";
 import { CashinPay, type PayAccount } from "./buy.js";
 import { explainRefusal } from "./explain.js";
 import { Amount, COUNTRY, Home, Intro, Review } from "./flow.js";
@@ -24,19 +25,6 @@ type Step = "intro" | "home" | "amount" | "review" | "cashin_pay";
 
 /** States where something is genuinely in flight and a timeline makes sense. */
 const IN_FLIGHT: State[] = ["submitted", "settling", "stalled"];
-
-/**
- * A stand-in so the pay screen can be reviewed on a phone before `apps/api`
- * can create a real order. Deliberately not a plausible account number — a
- * screen that shows real-looking bank details nobody owns is how money gets
- * sent into the void. Never rendered outside development.
- */
-const EXAMPLE_ACCOUNT: PayAccount = {
-  bank: "Example Bank — not a real account",
-  accountNumber: "0000000000",
-  accountName: "EXAMPLE ONLY — DO NOT SEND",
-  amount: "0.00",
-};
 
 export function App() {
   const [step, setStep] = useState<Step>(() => {
@@ -56,14 +44,39 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [txState, setTxState] = useState<State | null>(null);
-  const [account] = useState<PayAccount | null>(
-    import.meta.env.DEV ? EXAMPLE_ACCOUNT : null,
-  );
+  const [account, setAccount] = useState<PayAccount | null>(null);
+  const [reference, setReference] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   const language = hostLanguage();
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+
+  // While a transfer is in flight, ask the rail. The server never serves a
+  // cached verdict, so this is the live state rather than our memory of it.
+  useEffect(() => {
+    if (reference === null || txState === null) return;
+    if (!IN_FLIGHT.includes(txState)) return;
+
+    let stop = false;
+    const tick = async () => {
+      try {
+        const latest = await readOrder(reference);
+        if (!stop && latest.state !== null) setTxState(latest.state);
+      } catch {
+        // Transient. The next tick tries again; the stall window in the
+        // machine is what eventually gives up, not this loop.
+      }
+    };
+
+    const timer = setInterval(() => void tick(), 4000);
+    void tick();
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [reference, txState]);
 
   const { quote, refusal } = useQuote({
     direction,
@@ -100,7 +113,41 @@ export function App() {
   function home() {
     setTxState(null);
     setAmount("");
+    setAccount(null);
+    setReference(null);
+    setOrderError(null);
     setStep("home");
+  }
+
+  /**
+   * Create the order on the rail, which is what produces the one-time account
+   * the user pays into. Until this succeeds there is nothing to show, and
+   * the pay screen says so rather than inventing bank details.
+   */
+  async function startCashIn(typed: string) {
+    setOrderError(null);
+    setAccount(null);
+    setStep("cashin_pay");
+
+    if (session === null) {
+      setOrderError("Connect your Nimiq Pay wallet first — the stablecoin needs somewhere to land.");
+      return;
+    }
+
+    try {
+      const order = await createOrder({
+        direction: "cash_in",
+        corridor,
+        chain: chain.slug,
+        symbol,
+        amount: typed,
+        address: session.address,
+      });
+      setReference(order.ref);
+      setAccount(order.account);
+    } catch (e) {
+      setOrderError(e instanceof Error ? e.message : "could not create the order");
+    }
   }
 
   const body = (() => {
@@ -109,14 +156,14 @@ export function App() {
         <Progress
           direction={direction}
           state={txState}
-          reference="NR-7QK2"
+          reference={reference ?? "—"}
           heading={cashOut ? "Cashing out" : "Cashing in"}
           onClose={home}
         />
       ) : (
         <StatusScreen
           state={txState}
-          reference="NR-7QK2"
+          {...(reference === null ? {} : { reference })}
           support={SUPPORT}
           onDone={home}
         />
@@ -172,7 +219,8 @@ export function App() {
               // Cash-in has no separate review: the rail's own one-time
               // account carries the locked price, so the pay screen is the
               // review.
-              setStep(cashOut ? "review" : "cashin_pay");
+              if (cashOut) setStep("review");
+              else void startCashIn(a);
             }}
           />
         );
@@ -181,6 +229,7 @@ export function App() {
         return (
           <CashinPay
             account={account}
+            error={orderError}
             receive={receive}
             corridor={corridor}
             onBack={() => setStep("amount")}

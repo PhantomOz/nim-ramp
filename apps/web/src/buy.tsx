@@ -37,6 +37,7 @@ function Copyable({ value, label }: { value: string; label: string }) {
 
 export function CashinPay({
   account,
+  error,
   receive,
   corridor,
   onSent,
@@ -44,6 +45,7 @@ export function CashinPay({
   onBack,
 }: {
   account: PayAccount | null;
+  error: string | null;
   receive: number;
   corridor: Corridor;
   onSent: () => void;
@@ -62,7 +64,11 @@ export function CashinPay({
       <div className="scroll" style={{ paddingTop: 8 }}>
         <h1 className="h1" style={{ fontSize: 26 }}>Pay by bank transfer</h1>
 
-        {account === null ? (
+        {error !== null ? (
+          <p className="body" style={{ marginTop: 8, color: "var(--fail)" }}>
+            {error}
+          </p>
+        ) : account === null ? (
           <p className="body body--muted" style={{ marginTop: 8 }}>
             Getting your one-time account from {PARTNER}…
           </p>

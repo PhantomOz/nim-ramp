@@ -9,5 +9,14 @@ export default defineConfig({
     // before there is anything deployed.
     port: 3000,
     allowedHosts: true,
+    // The phone reaches the app through a tunnel, so it cannot see a
+    // localhost API. Proxying /api through Vite keeps the app same-origin and
+    // means one tunnel rather than two — and no CORS in development.
+    proxy: {
+      "/api": {
+        target: process.env["API_ORIGIN"] ?? "http://localhost:8788",
+        changeOrigin: true,
+      },
+    },
   },
 });
