@@ -17,3 +17,11 @@ export function corridorOf(currency: string): Corridor | null {
   const found = CORRIDORS.find((corridor) => corridor === currency);
   return found ?? null;
 }
+
+/**
+ * Which way value is moving. Both directions are available in every corridor
+ * the rail lists; whether a provider is quoting a given size at a given
+ * moment is a live question, answered by asking for a rate — never by a
+ * table in this repository.
+ */
+export type Direction = "cash_out" | "cash_in";

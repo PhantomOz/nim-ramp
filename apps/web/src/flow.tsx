@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { breakdown, SENDER_FEE_PERCENT } from "./breakdown.js";
+import type { Explanation } from "./explain.js";
 
 /**
  * The licensed partner who actually pays the bank. The board calls this
@@ -200,7 +201,7 @@ export function Amount({
   chain: Chain;
   symbol: TokenSymbol;
   rate: number | null;
-  blocked: string | null;
+  blocked: Explanation | null;
   onBack: () => void;
   onReview: (amount: string) => void;
 }) {
@@ -260,7 +261,7 @@ export function Amount({
         <div className="promise__rule" />
       </div>
 
-      {blocked !== null ? <p className="notice">{blocked}</p> : null}
+      {blocked !== null ? <p className="notice">{blocked.text}</p> : null}
       {problem !== null ? <p className="notice">{problem}</p> : null}
 
       {split !== null ? (
@@ -302,7 +303,13 @@ export function Amount({
         disabled={!ready}
         onClick={() => onReview(amount)}
       >
-        {blocked !== null ? "Not available on this route" : "Review and lock the price"}
+        {blocked === null
+          ? "Review and lock the price"
+          : blocked.action === "switch-network"
+            ? "Switch network"
+            : blocked.action === "change-amount"
+              ? "Try another amount"
+              : "Not available"}
       </button>
     </section>
   );

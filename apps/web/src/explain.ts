@@ -1,72 +1,52 @@
-import {
-  chainBySlug,
-  chainsFor,
-  type ChainSlug,
-  type Corridor,
-  type Direction,
-  supports,
-  type TokenSymbol,
-  tokensFor,
-} from "@ramp/core";
+import type { Corridor } from "@ramp/core";
+import type { RailRefusal } from "@ramp/rails";
 
-const COUNTRY: Record<Corridor, string> = {
-  NGN: "Nigeria",
-  KES: "Kenya",
-  TZS: "Tanzania",
-  UGX: "Uganda",
+import { COUNTRY, PARTNER } from "./flow.js";
+
+export type Explanation = {
+  text: string;
+  /** What the user can usefully do about it. */
+  action: "switch-network" | "change-amount" | "none";
 };
 
-const list = (items: string[]): string =>
-  items.length <= 1
-    ? (items[0] ?? "")
-    : `${items.slice(0, -1).join(", ")} or ${items[items.length - 1] ?? ""}`;
-
 /**
- * Why this combination will not work, and what would.
+ * Turn the rail's refusal into something a person can act on.
  *
- * The rail's two directions are wildly asymmetric — cash-out fills 34 of 40
- * combinations, cash-in fills 7 — so people will land on dead ends through no
- * fault of their own. Telling them "unsupported" and stopping is the kind of
- * dead end §4 exists to prevent; naming the route that does work is the
- * difference between a wall and a signpost.
- *
- * Returns null when the combination is fine.
+ * The important line here is the one between "not supported" and "not right
+ * now". Every corridor the rail lists works in both directions; whether a
+ * provider is quoting a given size this minute is weather, not climate.
+ * Saying "Uganda cannot be cashed into" because nobody was quoting UGX when
+ * we asked would be a lie with a long shelf life.
  */
-export function explainUnsupported(
-  direction: Direction,
-  chain: ChainSlug,
-  token: TokenSymbol,
-  corridor: Corridor,
-): string | null {
-  if (supports(direction, chain, token, corridor)) return null;
+export function explainRefusal(
+  refusal: RailRefusal,
+  context: { chainName: string; corridor: Corridor },
+): Explanation {
+  switch (refusal.kind) {
+    case "structural": {
+      if (refusal.subject === "token") {
+        return {
+          text: `${refusal.what} isn't accepted on ${context.chainName}. Switch network in Nimiq Pay to continue — your ${context.chainName} balance stays exactly where it is.`,
+          action: "switch-network",
+        };
+      }
+      return {
+        text: `${PARTNER} doesn't reach ${refusal.what} yet.`,
+        action: "none",
+      };
+    }
 
-  const verb = direction === "cash_in" ? "cash in" : "cash out";
-  const where = direction === "cash_in" ? "from" : "to";
-  const country = COUNTRY[corridor];
+    case "no-liquidity": {
+      const country = COUNTRY[context.corridor]?.name ?? context.corridor;
+      return {
+        text: `Nobody is quoting that amount for ${country} right now. Try a different amount, or another network — this usually clears within the hour.`,
+        action: "change-amount",
+      };
+    }
 
-  // Would a different token on this same chain work?
-  const otherTokens = tokensFor(direction, chain, corridor);
-  if (otherTokens.length > 0) {
-    const here = chainBySlug(chain)?.name ?? chain;
-    return `On ${here} you can only ${verb} ${where} ${country} with ${list(otherTokens)}.`;
+    case "unknown":
+      // Pass the rail's own words through. Reinterpreting a message we do not
+      // recognise is how a temporary problem becomes a permanent claim.
+      return { text: refusal.message, action: "none" };
   }
-
-  // Would this token work on a different chain?
-  const otherChains = chainsFor(direction, token, corridor)
-    .map((slug) => chainBySlug(slug)?.name ?? slug);
-  if (otherChains.length > 0) {
-    return `${token} can only ${verb} ${where} ${country} on ${list(otherChains)}.`;
-  }
-
-  // Nothing reaches this corridor in this direction at all.
-  const anyToken = (["USDT", "USDC"] as const).some(
-    (t) => chainsFor(direction, t, corridor).length > 0,
-  );
-  if (!anyToken) {
-    return direction === "cash_in"
-      ? `${country} cannot be cashed in yet — our rail has no provider buying ${corridor}. Cashing out works.`
-      : `${country} cannot be cashed out yet.`;
-  }
-
-  return `${token} cannot ${verb} ${where} ${country}. Try the other token.`;
 }

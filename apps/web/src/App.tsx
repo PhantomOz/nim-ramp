@@ -9,7 +9,7 @@ import type { State } from "@ramp/machine";
 import { connect, getProvider, hostLanguage, type Session } from "@ramp/wallet";
 import { useEffect, useState } from "react";
 
-import { explainUnsupported } from "./explain.js";
+import { explainRefusal } from "./explain.js";
 import { Amount, Home, Intro, Review } from "./flow.js";
 import { HostPanel } from "./HostPanel.js";
 import { StatusScreen } from "./screens.js";
@@ -44,15 +44,18 @@ export function App() {
     document.documentElement.lang = language;
   }, [language]);
 
-  const blocked = explainUnsupported(direction, chain.slug, symbol, corridor);
-  const { quote } = useQuote({
+  const { quote, refusal } = useQuote({
     direction,
     chain,
     symbol,
     corridor,
     amount: amount === "" ? "1" : amount,
-    enabled: blocked === null,
   });
+
+  const blocked =
+    refusal === null
+      ? null
+      : explainRefusal(refusal, { chainName: chain.name, corridor });
 
   async function onConnect() {
     setWalletError(null);

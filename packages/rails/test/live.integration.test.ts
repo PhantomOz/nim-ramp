@@ -1,8 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { CHAINS, CORRIDORS, supports } from "@ramp/core";
+import { CHAINS, CORRIDORS } from "@ramp/core";
 
-import { createClient, type FetchLike, PaycrestError } from "../src/index.js";
+import {
+  classifyRefusal,
+  createClient,
+  type FetchLike,
+  PaycrestError,
+} from "../src/index.js";
 
 const apiKey = process.env["RAILS_API_KEY"];
 const baseUrl = process.env["RAILS_API_BASE"] ?? "https://api.paycrest.io";
@@ -57,40 +62,65 @@ describe.skipIf(apiKey === undefined)("Paycrest, live", () => {
     }
   }, 90_000);
 
-  test("the support matrix still matches the rail", async () => {
-    // The matrix is hardcoded for a fast local answer, so it can drift. These
-    // are the load-bearing claims rather than all eighty cells: the two
-    // directions are wildly asymmetric, and a UI built on a stale matrix
-    // offers people transfers that cannot happen.
-    const claims = [
-      ["cash_out", "polygon", "USDT", "NGN"],
-      ["cash_out", "base", "USDC", "UGX"],
-      ["cash_out", "base", "USDT", "KES"], // expected unsupported
-      ["cash_in", "polygon", "USDC", "NGN"],
-      ["cash_in", "polygon", "USDT", "NGN"], // expected unsupported
-      ["cash_in", "base", "USDT", "KES"],
-      ["cash_in", "polygon", "USDT", "TZS"], // expected unsupported
-      ["cash_in", "base", "USDC", "UGX"], // expected unsupported
+  test("a gap in coverage is liquidity, never support", async () => {
+    // The error this exists to prevent: reading "no provider available" as
+    // "this corridor is unsupported", and baking one minute's liquidity into
+    // a constant that outlives it. Every corridor the rail lists works both
+    // ways; whether anyone is quoting a given size right now does not.
+    const probes = [
+      ["base", "USDT", "UGX", "sell"],
+      ["ethereum", "USDT", "TZS", "sell"],
+      ["polygon", "USDT", "NGN", "buy"],
+      ["polygon", "USDT", "UGX", "buy"],
     ] as const;
 
-    for (const [direction, chain, token, corridor] of claims) {
-      const side = direction === "cash_out" ? "sell" : "buy";
-      const live = await client
-        .rates({ network: chain, from: token, amount: "100", to: corridor, side })
-        .then(() => true)
-        .catch(() => false);
+    for (const [network, from, to, side] of probes) {
+      const refusal = await client
+        .rates({ network, from, amount: "100", to, side })
+        .then(() => null)
+        .catch((e: unknown) =>
+          classifyRefusal(e instanceof Error ? e.message : String(e)),
+        );
+
+      // Filled is fine — liquidity comes and goes, which is the point.
+      if (refusal === null) continue;
 
       expect(
-        live,
-        `${direction} ${chain} ${token} ${corridor}: matrix says ${supports(
-          direction,
-          chain,
-          token,
-          corridor,
-        )}, rail says ${live}`,
-      ).toBe(supports(direction, chain, token, corridor));
+        refusal.kind,
+        `${side} ${network} ${from}->${to}: ${refusal.message}`,
+      ).toBe("no-liquidity");
     }
   }, 90_000);
+
+  test("the only structural refusals are the two we know about", async () => {
+    const optimism = await client
+      .rates({
+        network: "optimism" as never,
+        from: "USDT",
+        amount: "100",
+        to: "NGN",
+        side: "sell",
+      })
+      .then(() => null)
+      .catch((e: unknown) =>
+        classifyRefusal(e instanceof Error ? e.message : String(e)),
+      );
+    expect(optimism?.kind).toBe("structural");
+
+    const ghs = await client
+      .rates({
+        network: "polygon",
+        from: "USDT",
+        amount: "100",
+        to: "GHS" as never,
+        side: "sell",
+      })
+      .then(() => null)
+      .catch((e: unknown) =>
+        classifyRefusal(e instanceof Error ? e.message : String(e)),
+      );
+    expect(ghs?.kind).toBe("structural");
+  }, 60_000);
 
   test("our API key authenticates", async () => {
     // A well-formed but nonexistent order id. Paycrest answers 404 "Payment
