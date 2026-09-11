@@ -3,6 +3,8 @@ import {
   type Chain,
   CORRIDORS,
   type Corridor,
+  type Direction,
+  supports,
   type TokenSymbol,
 } from "@ramp/core";
 import type { State } from "@ramp/machine";
@@ -11,7 +13,8 @@ import { useEffect, useState } from "react";
 
 import { HostPanel } from "./HostPanel.js";
 import { StatusScreen } from "./screens.js";
-import { type Direction, useQuote } from "./useQuote.js";
+import { explainUnsupported } from "./explain.js";
+import { useQuote } from "./useQuote.js";
 
 const SUPPORT = "help@fourcorridors.app";
 const TOKENS: TokenSymbol[] = ["USDT", "USDC"];
@@ -35,12 +38,15 @@ export function App() {
     document.documentElement.lang = language;
   }, [language]);
 
+  const blocked = explainUnsupported(direction, chain.slug, symbol, corridor);
+
   const { quote, loading, error } = useQuote({
     direction,
     chain,
     symbol,
     corridor,
     amount,
+    enabled: blocked === null,
   });
 
   const cashOut = direction === "cash_out";
@@ -120,7 +126,13 @@ export function App() {
                 aria-label="Token"
               >
                 {TOKENS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option
+                    key={t}
+                    value={t}
+                    disabled={!supports(direction, chain.slug, t, corridor)}
+                  >
+                    {t}
+                  </option>
                 ))}
               </select>
             ) : (
@@ -132,7 +144,13 @@ export function App() {
                 aria-label="Currency"
               >
                 {CORRIDORS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option
+                    key={c}
+                    value={c}
+                    disabled={!supports(direction, chain.slug, symbol, c)}
+                  >
+                    {c}
+                  </option>
                 ))}
               </select>
             )}
@@ -158,7 +176,13 @@ export function App() {
                 aria-label="Currency"
               >
                 {CORRIDORS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option
+                    key={c}
+                    value={c}
+                    disabled={!supports(direction, chain.slug, symbol, c)}
+                  >
+                    {c}
+                  </option>
                 ))}
               </select>
             ) : (
@@ -170,7 +194,13 @@ export function App() {
                 aria-label="Token"
               >
                 {TOKENS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option
+                    key={t}
+                    value={t}
+                    disabled={!supports(direction, chain.slug, t, corridor)}
+                  >
+                    {t}
+                  </option>
                 ))}
               </select>
             )}
@@ -191,14 +221,22 @@ export function App() {
               aria-label="Chain"
             >
               {CHAINS.map((c) => (
-                <option key={c.slug} value={c.slug}>{c.name}</option>
+                <option
+                  key={c.slug}
+                  value={c.slug}
+                  disabled={!supports(direction, c.slug, symbol, corridor)}
+                >
+                  {c.name}
+                </option>
               ))}
             </select>
           </div>
         </label>
 
-        <p className="rate">
-          {error !== null
+        <p className={blocked !== null ? "rate rate--blocked" : "rate"}>
+          {blocked !== null
+            ? blocked
+            : error !== null
             ? error
             : quote === null
               ? "Enter an amount to see today's rate"
@@ -226,8 +264,10 @@ export function App() {
             Connected <code>{session.address.slice(0, 6)}…{session.address.slice(-4)}</code>{" "}
             on {session.chain.name}
           </p>
-          <button className="cta" type="button" disabled>
-            Continue — recipient details next
+          <button className="cta" type="button" disabled={blocked !== null}>
+            {blocked !== null
+              ? "Not available on this route"
+              : "Continue — recipient details next"}
           </button>
         </>
       )}

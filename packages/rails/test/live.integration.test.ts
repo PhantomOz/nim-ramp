@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { CHAINS, CORRIDORS } from "@ramp/core";
+import { CHAINS, CORRIDORS, supports } from "@ramp/core";
 
 import { createClient, type FetchLike, PaycrestError } from "../src/index.js";
 
@@ -54,6 +54,41 @@ describe.skipIf(apiKey === undefined)("Paycrest, live", () => {
         });
         expect(Number(rate.rate)).toBeGreaterThan(0);
       }
+    }
+  }, 90_000);
+
+  test("the support matrix still matches the rail", async () => {
+    // The matrix is hardcoded for a fast local answer, so it can drift. These
+    // are the load-bearing claims rather than all eighty cells: the two
+    // directions are wildly asymmetric, and a UI built on a stale matrix
+    // offers people transfers that cannot happen.
+    const claims = [
+      ["cash_out", "polygon", "USDT", "NGN"],
+      ["cash_out", "base", "USDC", "UGX"],
+      ["cash_out", "base", "USDT", "KES"], // expected unsupported
+      ["cash_in", "polygon", "USDC", "NGN"],
+      ["cash_in", "polygon", "USDT", "NGN"], // expected unsupported
+      ["cash_in", "base", "USDT", "KES"],
+      ["cash_in", "polygon", "USDT", "TZS"], // expected unsupported
+      ["cash_in", "base", "USDC", "UGX"], // expected unsupported
+    ] as const;
+
+    for (const [direction, chain, token, corridor] of claims) {
+      const side = direction === "cash_out" ? "sell" : "buy";
+      const live = await client
+        .rates({ network: chain, from: token, amount: "100", to: corridor, side })
+        .then(() => true)
+        .catch(() => false);
+
+      expect(
+        live,
+        `${direction} ${chain} ${token} ${corridor}: matrix says ${supports(
+          direction,
+          chain,
+          token,
+          corridor,
+        )}, rail says ${live}`,
+      ).toBe(supports(direction, chain, token, corridor));
     }
   }, 90_000);
 

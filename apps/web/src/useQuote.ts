@@ -1,4 +1,4 @@
-import type { Chain, Corridor, TokenSymbol } from "@ramp/core";
+import type { Chain, Corridor, Direction, TokenSymbol } from "@ramp/core";
 import { useEffect, useState } from "react";
 
 /**
@@ -8,8 +8,6 @@ import { useEffect, useState } from "react";
  * published to the world.
  */
 const RATES = "https://api.paycrest.io/v2/rates";
-
-export type Direction = "cash_out" | "cash_in";
 
 export type Quote = {
   /** Fiat per one unit of the token. */
@@ -24,14 +22,21 @@ export function useQuote(input: {
   symbol: TokenSymbol;
   corridor: Corridor;
   amount: string;
+  /** False for combinations the support matrix already rules out. */
+  enabled: boolean;
 }): { quote: Quote | null; loading: boolean; error: string | null } {
-  const { direction, chain, symbol, corridor, amount } = input;
+  const { direction, chain, symbol, corridor, amount, enabled } = input;
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const entered = Number(amount);
+    if (!enabled) {
+      setQuote(null);
+      setError(null);
+      return;
+    }
     if (amount.trim() === "" || !Number.isFinite(entered) || entered <= 0) {
       setQuote(null);
       setError(null);
@@ -83,7 +88,7 @@ export function useQuote(input: {
     return () => {
       cancelled = true;
     };
-  }, [direction, chain.slug, symbol, corridor, amount]);
+  }, [direction, chain.slug, symbol, corridor, amount, enabled]);
 
   return { quote, loading, error };
 }

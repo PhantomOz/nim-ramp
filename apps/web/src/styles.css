@@ -202,3 +202,5 @@ body {
   cursor: pointer;
 }
 .probe__actions button:disabled { opacity: 0.45; cursor: default; }
+
+.rate--blocked { color: var(--warn); }
