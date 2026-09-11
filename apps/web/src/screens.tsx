@@ -21,8 +21,10 @@ export type ScreenSpec = {
   title: string;
   /** "What happened" — always present. */
   happened: string;
-  /** "Your money" — required wherever tone is `failed`. */
+  /** "Your money" — the lead line. Required wherever tone is `failed`. */
   money: string | null;
+  /** The smaller line under it. */
+  moneyDetail?: string;
   stamp: { text: string; tone: StampTone } | null;
   tone: Tone;
   showsReference: boolean;
@@ -77,7 +79,8 @@ export const SCREENS: Record<State, ScreenSpec> = {
     title: "The price ran out",
     happened:
       "Prices only hold for a short time, and this one expired before it was confirmed.",
-    money: "Nothing was sent and nothing left your wallet.",
+    money: "Nothing was sent.",
+    moneyDetail: "Nothing left your wallet, and you were not charged.",
     stamp: { text: "Not sent", tone: "warn" },
     tone: "attention",
     showsReference: false,
@@ -86,7 +89,8 @@ export const SCREENS: Record<State, ScreenSpec> = {
     title: "The account was rejected",
     happened:
       "Our payments partner could not pay that account. Usually the number or the name does not match.",
-    money: "Nothing left your wallet. Check the details and try again.",
+    money: "Nothing left your wallet.",
+    moneyDetail: "Check the account number and the name, then try again.",
     stamp: { text: "Not sent", tone: "fail" },
     tone: "failed",
     showsReference: true,
@@ -95,7 +99,8 @@ export const SCREENS: Record<State, ScreenSpec> = {
     title: "Sending your money back",
     happened:
       "This transfer could not be completed, so your money is on its way back to your wallet.",
-    money: "Your USDT is being returned. You do not need to do anything.",
+    money: "Your money is on its way back.",
+    moneyDetail: "It returns to the wallet it came from. You do not need to do anything.",
     stamp: { text: "Refunding", tone: "fail" },
     tone: "failed",
     showsReference: true,
@@ -103,7 +108,8 @@ export const SCREENS: Record<State, ScreenSpec> = {
   failed_refunded: {
     title: "Returned to your wallet",
     happened: "The transfer did not go through.",
-    money: "Your USDT is back in your wallet. You were not charged.",
+    money: "Your money is back in your wallet.",
+    moneyDetail: "The transfer did not complete, and you were not charged.",
     stamp: { text: "Returned", tone: "fail" },
     tone: "failed",
     showsReference: true,
@@ -113,7 +119,8 @@ export const SCREENS: Record<State, ScreenSpec> = {
     happened:
       "Something went wrong that we have to fix ourselves rather than automatically.",
     money:
-      "Your money is accounted for. Quote the reference below and we will come back to you.",
+      "Your money is accounted for.",
+    moneyDetail: "Quote the reference below and we will come back to you.",
     stamp: null,
     tone: "failed",
     showsReference: true,
@@ -123,7 +130,8 @@ export const SCREENS: Record<State, ScreenSpec> = {
     happened:
       "Our payments partner has not confirmed yet. Delays like this usually clear on their own.",
     money:
-      "Your money is with our partner. If it does not land, it comes back to your wallet.",
+      "Your money is with our payments partner.",
+    moneyDetail: "If it does not land, it comes back to your wallet automatically.",
     stamp: null,
     tone: "attention",
     showsReference: true,
@@ -142,60 +150,76 @@ export function StatusScreen({
   onDone?: () => void;
 }) {
   const spec = SCREENS[state];
-  const stampClass =
-    spec.stamp === null ? "" : `stamp stamp--${spec.stamp.tone}`;
+  const edge =
+    spec.tone === "done"
+      ? "var(--ok)"
+      : spec.tone === "failed"
+        ? "var(--fail)"
+        : "var(--plum)";
 
   return (
-    <section className="screen" aria-live="polite">
-      {spec.stamp !== null ? (
-        <div>
-          <span className={stampClass}>{spec.stamp.text}</span>
-        </div>
-      ) : null}
+    <>
+      <div className="scroll" aria-live="polite">
+        {spec.stamp !== null ? (
+          <div className={`stamp stamp--${spec.stamp.tone}`}>{spec.stamp.text}</div>
+        ) : null}
 
-      <h1 className="title">{spec.title}</h1>
+        <h1 className="h1" style={{ marginTop: 20 }}>{spec.title}</h1>
 
-      <div className="panel">
-        <div>
-          <p className="row__k">What happened</p>
-          <p className="sub" style={{ color: "var(--ink)" }}>
-            {spec.happened}
-          </p>
+        <div className="section--lead">
+          <div className="label">What happened</div>
+          <p className="body" style={{ marginTop: 8 }}>{spec.happened}</p>
         </div>
 
         {spec.money !== null ? (
-          <>
-            <hr className="rule" />
-            <div>
-              <p className="row__k">Your money</p>
-              <p className="sub" style={{ color: "var(--ink)" }}>
-                {spec.money}
-              </p>
+          <div className="section">
+            <div className="label">Your money</div>
+            <div className="panel panel--edge" style={{ color: edge, marginTop: 8 }}>
+              <p className="panel__lead">{spec.money}</p>
+              {spec.moneyDetail !== undefined ? (
+                <p className="panel__detail">{spec.moneyDetail}</p>
+              ) : null}
             </div>
-          </>
+          </div>
         ) : null}
 
         {spec.showsReference && reference !== undefined ? (
-          <>
-            <hr className="rule" />
-            <div>
-              <p className="row__k">Reference</p>
-              <p className="ref">{reference}</p>
-              <p className="trust">
-                Quote this to a human and they will see exactly what you see —{" "}
-                <a href={`mailto:${support}`}>{support}</a>
-              </p>
+          <div className="section">
+            <div className="label">Reference</div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginTop: 8,
+              }}
+            >
+              <span className="num num--md" style={{ letterSpacing: ".04em" }}>
+                {reference}
+              </span>
+              <button
+                className="chipbtn"
+                type="button"
+                onClick={() => void navigator.clipboard?.writeText(reference)}
+              >
+                Copy
+              </button>
             </div>
-          </>
+            <p className="small" style={{ marginTop: 6 }}>
+              Quote this to a human and they&rsquo;ll see exactly what you see —{" "}
+              <a href={`mailto:${support}`} style={{ color: "var(--plum)" }}>
+                {support}
+              </a>
+            </p>
+          </div>
         ) : null}
       </div>
 
-      <div className="spacer" />
       {onDone !== undefined ? (
-        <button className="btn" type="button" onClick={onDone}>
-          Done
-        </button>
+        <div className="foot">
+          <button className="btn" type="button" onClick={onDone}>Done</button>
+        </div>
       ) : null}
-    </section>
+    </>
   );
 }

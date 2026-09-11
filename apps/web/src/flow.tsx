@@ -12,25 +12,56 @@ import type { Explanation } from "./explain.js";
 
 /**
  * The licensed partner who actually pays the bank. The board calls this
- * "Sango Payments Ltd" as a stand-in; ours is Paycrest. One constant, because
- * the legal framing is likelier to change than the copy around it.
+ * "Sango Payments Ltd" as a stand-in; ours is Paycrest.
  */
 export const PARTNER = "Paycrest";
 
-export const COUNTRY: Record<Corridor, { name: string; money: string; method: string }> = {
-  NGN: { name: "Nigeria", money: "naira", method: "bank account" },
-  KES: { name: "Kenya", money: "shillings", method: "mobile money" },
-  TZS: { name: "Tanzania", money: "shillings", method: "mobile money" },
-  UGX: { name: "Uganda", money: "shillings", method: "mobile money" },
+export const COUNTRY: Record<
+  Corridor,
+  { name: string; money: string; sym: string; method: string }
+> = {
+  NGN: { name: "Nigeria", money: "Naira", sym: "₦", method: "bank account" },
+  KES: { name: "Kenya", money: "Shillings", sym: "KSh", method: "mobile money" },
+  TZS: { name: "Tanzania", money: "Shillings", sym: "TSh", method: "mobile money" },
+  UGX: { name: "Uganda", money: "Shillings", sym: "USh", method: "mobile money" },
 };
 
 const fmt = (n: number, dp = 0) =>
   n.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
+/**
+ * A figure, set in the serif, with its currency symbol in the sans face at
+ * .6em. Keeping the symbol out of the serif is what makes the number read as
+ * the number rather than as a line of type.
+ */
+function Num({
+  sym,
+  value,
+  size = "num--md",
+  marked = false,
+}: {
+  sym?: string;
+  value: string;
+  size?: string;
+  marked?: boolean;
+}) {
+  const inner = (
+    <>
+      {sym !== undefined ? <span className="sym">{sym}</span> : null}
+      {value}
+    </>
+  );
+  return (
+    <div className={`num ${size}`}>
+      {marked ? <span className="marked">{inner}</span> : inner}
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- intro */
 
 export function Intro({ onStart }: { onStart: () => void }) {
-  const promises = [
+  const promises: [string, string][] = [
     [
       "We never touch your money.",
       "Your own wallet sends it, directly. A licensed payments company does the bank side. We're the shop window, not the vault.",
@@ -46,40 +77,33 @@ export function Intro({ onStart }: { onStart: () => void }) {
   ];
 
   return (
-    <section className="screen">
-      <h1 className="title" style={{ fontSize: 28 }}>
-        Digital dollars to naira or shillings, and back.
-      </h1>
-      <p className="sub">Straight to your bank or mobile money.</p>
+    <>
+      <div className="scroll">
+        <h1 className="h1" style={{ marginTop: 16 }}>
+          Digital dollars to naira or shillings, and back.
+        </h1>
+        <p className="body body--muted" style={{ marginTop: 8 }}>
+          Straight to your bank or mobile money.
+        </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 6 }}>
-        {promises.map(([heading, body], i) => (
-          <div key={heading} style={{ display: "flex", gap: 14 }}>
-            <span
-              style={{
-                fontFamily: "var(--num)",
-                fontSize: 22,
-                color: "var(--apricot)",
-                lineHeight: 1,
-                flex: "none",
-                width: 28,
-              }}
-            >
-              {String(i + 1).padStart(2, "0")}
-            </span>
-            <div>
-              <p style={{ margin: 0, font: "600 15.5px/1.3 var(--ui)" }}>{heading}</p>
-              <p className="sub" style={{ marginTop: 4 }}>{body}</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 28 }}>
+          {promises.map(([heading, detail], i) => (
+            <div key={heading} style={{ display: "flex", gap: 14 }}>
+              <span className="num num--sm" style={{ color: "var(--apricot)", flex: "none", width: 30 }}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div>
+                <p style={{ margin: 0, font: "600 16px/1.3 var(--ui)" }}>{heading}</p>
+                <p className="body body--muted" style={{ marginTop: 5 }}>{detail}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-
-      <div className="spacer" />
-      <button className="btn" type="button" onClick={onStart}>
-        Let&rsquo;s go
-      </button>
-    </section>
+      <div className="foot">
+        <button className="btn" type="button" onClick={onStart}>Let&rsquo;s go</button>
+      </div>
+    </>
   );
 }
 
@@ -111,76 +135,87 @@ export function Home({
   const country = COUNTRY[corridor];
 
   return (
-    <section className="screen">
-      <div className="panel">
-        <p className="row__k">Today&rsquo;s price</p>
-        <div className="promise">
-          <div className="promise__value">
-            1 {symbol} = {rate === null ? "—" : fmt(rate, 2)}
+    <>
+      <div className="scroll">
+        {connected && address !== null ? (
+          <div className="row" style={{ alignItems: "center" }}>
+            <span className="small">
+              Nimiq Pay wallet · {address.slice(0, 6)}…{address.slice(-4)}
+            </span>
+            <select
+              id="home-chain"
+              className="unit"
+              value={chain.slug}
+              onChange={(e) => {
+                const next = CHAINS.find((c) => c.slug === e.target.value);
+                if (next !== undefined) onChangeChain(next);
+              }}
+              aria-label="Network"
+            >
+              {CHAINS.map((c) => (
+                <option key={c.slug} value={c.slug}>{c.name}</option>
+              ))}
+            </select>
           </div>
-          <div className="promise__rule" />
-          <p className="promise__note">
-            {corridor} · live. Locks when you review.
+        ) : null}
+
+        <div className="pricecard">
+          <div className="label">Today&rsquo;s price</div>
+          <div className="num num--md" style={{ marginTop: 8 }}>
+            1 {symbol} = <span className="sym">{country.sym}</span>
+            {rate === null ? "—" : fmt(rate, 2)}
+          </div>
+          <div className="live">
+            <span className="live__dot" />
+            Live. Locks when you review.
+          </div>
+        </div>
+
+        <button className="choice" type="button" onClick={() => onPick("cash_out")}>
+          <span className="choice__top">
+            <span className="choice__kind">Cash out</span>
+            <span className="choice__arrow">→</span>
+          </span>
+          <span className="choice__pair">{symbol} → {country.money}</span>
+          <p className="choice__note">
+            To your {country.method}. Usually under two minutes.
           </p>
+        </button>
+
+        <button className="choice choice--out" type="button" onClick={() => onPick("cash_in")}>
+          <span className="choice__top">
+            <span className="choice__kind">Cash in</span>
+            <span className="choice__arrow">→</span>
+          </span>
+          <span className="choice__pair">{country.money} → {symbol}</span>
+          <p className="choice__note">Pay by bank transfer. Lands in your wallet.</p>
+        </button>
+
+        <div className="section">
+          <div className="label">Country</div>
+          <select
+            id="home-corridor"
+            className="unit"
+            style={{ marginTop: 8 }}
+            value={corridor}
+            onChange={(e) => onChangeCorridor(e.target.value as Corridor)}
+            aria-label="Country"
+          >
+            {(Object.keys(COUNTRY) as Corridor[]).map((c) => (
+              <option key={c} value={c}>{COUNTRY[c].name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <select
-          id="home-corridor"
-          className="chip"
-          value={corridor}
-          onChange={(e) => onChangeCorridor(e.target.value as Corridor)}
-          aria-label="Country"
-        >
-          {(Object.keys(COUNTRY) as Corridor[]).map((c) => (
-            <option key={c} value={c}>{COUNTRY[c].name}</option>
-          ))}
-        </select>
-        <select
-          id="home-chain"
-          className="chip"
-          value={chain.slug}
-          onChange={(e) => {
-            const next = CHAINS.find((c) => c.slug === e.target.value);
-            if (next !== undefined) onChangeChain(next);
-          }}
-          aria-label="Network"
-        >
-          {CHAINS.map((c) => (
-            <option key={c.slug} value={c.slug}>{c.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <button className="bigchoice" type="button" onClick={() => onPick("cash_out")}>
-        <span className="bigchoice__t">Cash out</span>
-        <span className="bigchoice__p">{symbol} → {country.money}</span>
-        <span className="bigchoice__s">
-          To your {country.method}. Usually under two minutes.
-        </span>
-      </button>
-
-      <button className="bigchoice" type="button" onClick={() => onPick("cash_in")}>
-        <span className="bigchoice__t">Cash in</span>
-        <span className="bigchoice__p">{country.money} → {symbol}</span>
-        <span className="bigchoice__s">
-          Pay by bank transfer. Lands in your wallet.
-        </span>
-      </button>
-
-      <div className="spacer" />
-
-      {connected && address !== null ? (
-        <p className="trust">
-          Nimiq Pay wallet · <span className="ref">{address.slice(0, 6)}…{address.slice(-4)}</span> on {chain.name}
-        </p>
-      ) : (
-        <button className="btn btn--ghost" type="button" onClick={onConnect}>
-          Connect Nimiq Pay wallet
-        </button>
-      )}
-    </section>
+      {!connected ? (
+        <div className="foot">
+          <button className="btn" type="button" onClick={onConnect}>
+            Connect Nimiq Pay wallet
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -222,9 +257,7 @@ export function Amount({
 
   const receive = cashOut
     ? split?.receive
-    : rate !== null && amount !== ""
-      ? Number(amount) / rate
-      : undefined;
+    : rate !== null && amount !== "" ? Number(amount) / rate : undefined;
 
   const key = (k: string) => {
     if (k === "⌫") return setAmount((a) => a.slice(0, -1));
@@ -232,86 +265,89 @@ export function Amount({
     setAmount((a) => (a === "0" && k !== "." ? k : a + k));
   };
 
-  const ready = blocked === null && problem === null && receive !== undefined && receive > 0;
+  const ready =
+    blocked === null && problem === null && receive !== undefined && receive > 0;
 
   return (
-    <section className="screen">
-      <button className="btn--quiet" type="button" onClick={onBack} style={{ alignSelf: "flex-start", padding: 0, background: "none", border: 0, color: "var(--plum)", cursor: "pointer" }}>
-        ← Back
-      </button>
+    <>
+      <div className="nav">
+        <button className="nav__back" type="button" onClick={onBack} aria-label="Back">‹</button>
+        <span className="nav__title">{cashOut ? "Cash out" : "Cash in"}</span>
+      </div>
 
-      <div>
-        <p className="row__k">You send</p>
-        <div style={{ font: "400 40px/1 var(--num)", minHeight: 44 }}>
-          {amount === "" ? <span style={{ color: "var(--muted)" }}>0</span> : amount}{" "}
-          <span style={{ fontSize: 20, fontFamily: "var(--ui)", color: "var(--muted)" }}>
-            {cashOut ? symbol : corridor}
-          </span>
+      <div className="scroll">
+        <div className="label">You send</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 6 }}>
+          <div className="num num--input" style={{ flex: 1, minWidth: 0 }}>
+            {cashOut ? null : <span className="sym">{country.sym}</span>}
+            {amount === "" ? <span style={{ color: "var(--muted)" }}>0</span> : amount}
+          </div>
+          <span className="unit">{cashOut ? symbol : corridor}</span>
+        </div>
+
+        <div className="section">
+          <div className="label">You get, exactly</div>
+          <div style={{ marginTop: 6 }}>
+            <Num
+              size="num--xl"
+              marked
+              {...(cashOut ? { sym: country.sym } : {})}
+              value={receive === undefined ? "—" : fmt(receive, cashOut ? 0 : 4)}
+            />
+          </div>
+        </div>
+
+        {blocked !== null ? (
+          <p className="body" style={{ marginTop: 12, color: "var(--warn)" }}>{blocked.text}</p>
+        ) : null}
+        {problem !== null ? (
+          <p className="body" style={{ marginTop: 12, color: "var(--warn)" }}>{problem}</p>
+        ) : null}
+
+        {split !== null ? (
+          <div className="panel">
+            <div className="row">
+              <span className="row__k">Price</span>
+              <span className="row__v">
+                1 {symbol} = {country.sym}{rate === null ? "—" : fmt(rate, 2)}
+              </span>
+            </div>
+            <div className="row">
+              <span className="row__k">NimRamp fee ({SENDER_FEE_PERCENT}%)</span>
+              <span className="row__v">{split.fee} {symbol}</span>
+            </div>
+            <div className="row">
+              <span className="row__k">Bank and network fees</span>
+              <span className="row__v">Paid by {PARTNER}</span>
+            </div>
+          </div>
+        ) : null}
+
+        <p className="small" style={{ marginTop: 14 }}>
+          {cashOut
+            ? `Your wallet sends the money directly to ${PARTNER}, our licensed partner. They pay your ${country.method}. NimRamp never holds it.`
+            : `You pay ${PARTNER}, our licensed partner, by bank transfer. They send the ${symbol} straight to your Nimiq Pay wallet on ${chain.name}. NimRamp never holds it.`}
+        </p>
+
+        <div className="pad">
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"].map((k) => (
+            <button key={k} type="button" onClick={() => key(k)}>{k}</button>
+          ))}
         </div>
       </div>
 
-      <div className="promise">
-        <span className="promise__label">You get, exactly</span>
-        <div className="promise__value">
-          {receive === undefined ? "—" : fmt(receive, cashOut ? 0 : 4)}{" "}
-          <span style={{ fontSize: 18, fontFamily: "var(--ui)", color: "var(--muted)" }}>
-            {cashOut ? corridor : symbol}
-          </span>
-        </div>
-        <div className="promise__rule" />
+      <div className="foot">
+        <button className="btn" type="button" disabled={!ready} onClick={() => onReview(amount)}>
+          {blocked === null
+            ? "Review and lock the price"
+            : blocked.action === "switch-network"
+              ? "Switch network"
+              : blocked.action === "change-amount"
+                ? "Try another amount"
+                : "Not available"}
+        </button>
       </div>
-
-      {blocked !== null ? <p className="notice">{blocked.text}</p> : null}
-      {problem !== null ? <p className="notice">{problem}</p> : null}
-
-      {split !== null ? (
-        <div className="panel">
-          <div className="row">
-            <span className="row__k">Price</span>
-            <span className="row__v row__v--num">
-              1 {symbol} = {rate === null ? "—" : fmt(rate, 2)}
-            </span>
-          </div>
-          <div className="row">
-            <span className="row__k">NimRamp fee ({SENDER_FEE_PERCENT}%)</span>
-            <span className="row__v row__v--num">{split.fee} {symbol}</span>
-          </div>
-          <div className="row">
-            <span className="row__k">Bank and network fees</span>
-            <span className="row__v">Paid by {PARTNER}</span>
-          </div>
-        </div>
-      ) : null}
-
-      <p className="trust">
-        {cashOut
-          ? `Your wallet sends the money directly to ${PARTNER}, our licensed partner. They pay your ${country.method}. NimRamp never holds it.`
-          : `You pay ${PARTNER}, our licensed partner, by bank transfer. They send the ${symbol} straight to your Nimiq Pay wallet on ${chain.name}. NimRamp never holds it.`}
-      </p>
-
-      <div className="pad">
-        {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"].map((k) => (
-          <button key={k} type="button" onClick={() => key(k)}>
-            {k}
-          </button>
-        ))}
-      </div>
-
-      <button
-        className="btn"
-        type="button"
-        disabled={!ready}
-        onClick={() => onReview(amount)}
-      >
-        {blocked === null
-          ? "Review and lock the price"
-          : blocked.action === "switch-network"
-            ? "Switch network"
-            : blocked.action === "change-amount"
-              ? "Try another amount"
-              : "Not available"}
-      </button>
-    </section>
+    </>
   );
 }
 
@@ -339,6 +375,7 @@ export function Review({
   onBack: () => void;
 }) {
   const [left, setLeft] = useState(LOCK_SECONDS);
+  const country = COUNTRY[corridor];
 
   useEffect(() => {
     if (left <= 0) {
@@ -350,52 +387,57 @@ export function Review({
   }, [left, onExpired]);
 
   return (
-    <section className="screen">
-      <div>
-        <span className="stamp stamp--warn">Price locked</span>
+    <>
+      <div className="nav">
+        <button className="nav__back" type="button" onClick={onBack} aria-label="Back">‹</button>
+        <span className="nav__title">Review</span>
       </div>
 
-      <div className="promise">
-        <span className="promise__label">You get, exactly</span>
-        <div className="promise__value">
-          {fmt(receive)}{" "}
-          <span style={{ fontSize: 18, fontFamily: "var(--ui)", color: "var(--muted)" }}>
-            {corridor}
-          </span>
+      <div className="scroll">
+        <div className="stamp stamp--warn">Price locked</div>
+
+        <div className="section--lead">
+          <div className="label">You send</div>
+          <div style={{ marginTop: 6 }}>
+            <Num size="num--lg" value={`${send} ${symbol}`} />
+          </div>
         </div>
-        <div className="promise__rule" />
-        <p className="promise__note">
-          This number is yours for <strong>{left}s</strong>
+
+        <div className="section">
+          <div className="label">You get, exactly</div>
+          <div style={{ marginTop: 6 }}>
+            <Num size="num--xl" marked sym={country.sym} value={fmt(receive)} />
+          </div>
+          <p className="body body--muted" style={{ marginTop: 8 }}>
+            This number is yours for <strong>{left}s</strong>.
+          </p>
+        </div>
+
+        <div className="panel">
+          <div className="row">
+            <span className="row__k">Network</span>
+            <span className="row__v">{chain.name}</span>
+          </div>
+          <div className="row">
+            <span className="row__k">Paid by</span>
+            <span className="row__v">{PARTNER}</span>
+          </div>
+          <div className="row">
+            <span className="row__k">Lands in</span>
+            <span className="row__v">{country.name}</span>
+          </div>
+        </div>
+
+        <p className="small" style={{ marginTop: 14 }}>
+          NimRamp is not in this chain. {PARTNER} is licensed for payments in{" "}
+          {country.name}; your wallet pays them directly.
         </p>
       </div>
 
-      <div className="panel">
-        <div className="row">
-          <span className="row__k">You send</span>
-          <span className="row__v row__v--num">{send} {symbol}</span>
-        </div>
-        <div className="row">
-          <span className="row__k">Network</span>
-          <span className="row__v">{chain.name}</span>
-        </div>
-        <div className="row">
-          <span className="row__k">Paid by</span>
-          <span className="row__v">{PARTNER}</span>
-        </div>
+      <div className="foot">
+        <button className="btn" type="button" onClick={onConfirm}>Confirm in wallet</button>
+        <button className="btn btn--secondary" type="button" onClick={onBack}>Back</button>
       </div>
-
-      <p className="trust">
-        NimRamp is not in this chain. {PARTNER} is licensed for payments in{" "}
-        {COUNTRY[corridor].name}; your wallet pays them directly.
-      </p>
-
-      <div className="spacer" />
-      <button className="btn" type="button" onClick={onConfirm}>
-        Confirm in wallet
-      </button>
-      <button className="btn btn--quiet" type="button" onClick={onBack}>
-        Back
-      </button>
-    </section>
+    </>
   );
 }

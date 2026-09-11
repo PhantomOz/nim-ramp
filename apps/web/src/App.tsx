@@ -151,13 +151,13 @@ export function App() {
 
   return (
     <div className="phone">
-      <div className="bar">
-        <span className="bar__name">NimRamp</span>
-        <span className="bar__sub">Mini app · Nimiq Pay</span>
+      <div className="topbar">
+        <span className="topbar__name">NimRamp</span>
+        <span className="topbar__sub">Mini app · Nimiq Pay</span>
       </div>
       {import.meta.env.DEV ? <HostPanel /> : null}
       {walletError !== null && step === "home" ? (
-        <p className="notice" style={{ margin: "12px 20px 0" }}>{walletError}</p>
+        <p className="small" style={{ margin: "12px 20px 0", color: "var(--warn)" }}>{walletError}</p>
       ) : null}
       {body}
     </div>

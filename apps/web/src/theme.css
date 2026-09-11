@@ -1,39 +1,37 @@
 /*
- * NimRamp design system.
- *
- * From the Claude Design board: paper ground, one ink, and a rubber stamp on
- * the moments that matter. Numbers are set in a serif so a figure reads like
- * something written on a receipt; the interface is Onest. Apricot appears in
- * exactly one place per screen — under the number you are being promised.
- *
- * The persona is Adaeze in Lagos, on Android, often outdoors: large type,
- * full-strength ink, no thin grey text.
+ * NimRamp design system — values taken from the Claude Design board, not
+ * approximated. Where a number looks oddly specific (2.5px borders, .22em
+ * tracking, 58%/92% gradient stops) it is specific in the source too.
  */
 
 :root {
   --paper: #F5F0EC;
-  --board: #E9E2DC;
   --card: #FFFFFF;
   --ink: #2A1B2E;
-  --ink-2: #3B1C37;
   --plum: #4A2545;
+  --plum-dark: #3B1C37;
   --muted: #6E6070;
   --muted-2: #5C4F5E;
   --line: rgba(42, 27, 46, 0.1);
-  --line-strong: rgba(42, 27, 46, 0.18);
+  --line-06: rgba(42, 27, 46, 0.06);
+  --plum-08: rgba(74, 37, 69, 0.08);
+  --plum-30: rgba(74, 37, 69, 0.3);
 
-  /* The single accent. Under the promised number, nowhere else. */
   --apricot: #FFB25B;
+  /* The highlighter, at the exact stops the board uses. */
+  --marker: linear-gradient(
+    transparent 58%,
+    rgba(255, 178, 91, 0.6) 58%,
+    rgba(255, 178, 91, 0.6) 92%,
+    transparent 92%
+  );
 
   --ok: #2F6B4F;
   --fail: #A83A2B;
-  --fail-ink: #8A2E22;
   --warn: #7A4A0C;
-  --warn-2: #B06A12;
 
   --ui: Onest, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --num: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
 }
 
 * { box-sizing: border-box; }
@@ -43,43 +41,15 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--ui);
-  font-size: 16px;
-  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
-
 input, button, select { font-family: inherit; }
 input:focus { outline: none; }
 
-/* ---- the stamp -------------------------------------------------------- */
-
-@keyframes nrStamp {
-  0%   { transform: rotate(-6deg) scale(1.9); opacity: 0; }
-  55%  { transform: rotate(-6deg) scale(0.95); opacity: 1; }
-  100% { transform: rotate(-6deg) scale(1); opacity: 0.95; }
-}
-@keyframes nrRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes nrPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.7); opacity: 0.45; } }
-
-.stamp {
-  display: inline-block;
-  font: 700 13px/1 var(--ui);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: 9px 14px;
-  border: 2px solid currentColor;
-  border-radius: 6px;
-  transform: rotate(-6deg);
-  animation: nrStamp 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
-}
-.stamp--ok { color: var(--ok); }
-.stamp--fail { color: var(--fail); }
-.stamp--warn { color: var(--warn-2); }
-
-@media (prefers-reduced-motion: reduce) {
-  .stamp { animation: none; }
-  * { animation: none !important; transition: none !important; }
-}
+@keyframes nrPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.7); opacity: .45; } }
+@keyframes nrStamp { 0% { transform: rotate(-6deg) scale(1.9); opacity: 0 } 55% { transform: rotate(-6deg) scale(.95); opacity: 1 } 100% { transform: rotate(-6deg) scale(1); opacity: .95 } }
+@keyframes nrFade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes nrRise { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
 
 /* ---- shell ------------------------------------------------------------ */
 
@@ -92,138 +62,262 @@ input:focus { outline: none; }
   background: var(--paper);
 }
 
-.bar {
+.topbar {
   flex: none;
   height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid rgba(42, 27, 46, 0.08);
 }
-.bar__name { font: 600 14px/1 var(--ui); }
-.bar__sub { font: 400 11px/1 var(--ui); color: var(--muted); }
+.topbar__name { font: 600 14px/1 var(--ui); }
+.topbar__sub { font: 400 11px/1 var(--ui); color: var(--muted); }
 
-.screen {
+/* Header row with the round back chevron. */
+.nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 0;
+}
+.nav__back {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  font: 400 28px/1 var(--ui);
+  color: var(--plum);
+  padding-bottom: 3px;
+}
+.nav__back:hover { background: var(--line-06); }
+.nav__title { font: 600 15px var(--ui); color: var(--muted); }
+
+.scroll {
   flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 24px 16px;
+  animation: nrFade .25s ease-out;
+}
+.foot {
+  flex: none;
+  padding: 10px 20px 14px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 22px 20px calc(24px + env(safe-area-inset-bottom));
-  animation: nrRise 260ms ease both;
+  gap: 8px;
 }
 
-.title { font: 600 24px/1.2 var(--ui); letter-spacing: -0.015em; margin: 0; }
-.sub { font: 400 14.5px/1.5 var(--ui); color: var(--muted); margin: 0; }
+/* ---- type ------------------------------------------------------------- */
 
-/* ---- the promised number ---------------------------------------------- */
-
-.promise { display: flex; flex-direction: column; gap: 4px; }
-.promise__label { font: 400 13px/1 var(--ui); color: var(--muted); }
-.promise__value {
-  font: 400 44px/1 var(--num);
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
+/* The label that appears above every section, everywhere. */
+.label {
+  font: 600 11px/1 var(--ui);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
-.promise__rule { height: 3px; background: var(--apricot); border-radius: 2px; width: 56px; }
-.promise__note { font: 400 12.5px/1.4 var(--ui); color: var(--muted); }
-
-/* ---- cards and rows --------------------------------------------------- */
-
-.panel {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.h1 {
+  font: 600 27px/1.15 var(--ui);
+  letter-spacing: -.01em;
+  text-wrap: balance;
+  margin: 0;
 }
+.body { font: 400 15px/1.5 var(--ui); color: var(--ink); text-wrap: pretty; margin: 0; }
+.body--muted { color: var(--muted-2); }
+.small { font: 400 13px/1.45 var(--ui); color: var(--muted); margin: 0; }
 
-.row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
-.row__k { font: 400 13.5px/1.4 var(--ui); color: var(--muted); }
-.row__v { font: 500 14.5px/1.4 var(--ui); text-align: right; }
-.row__v--num { font-family: var(--num); font-size: 17px; font-weight: 400; }
+/* Numbers are serif. The currency symbol inside them is not — it sits at
+   .6em in the sans face, which keeps the figure reading as the figure. */
+.num { font-family: var(--serif); font-weight: 400; letter-spacing: -.01em; }
+.num--sm { font-size: 22px; line-height: 1; }
+.num--md { font-size: 30px; line-height: 1.1; }
+.num--lg { font-size: 34px; line-height: 1.1; }
+.num--xl { font-size: 46px; line-height: 1.1; letter-spacing: -.02em; }
+.num--input { font-size: 40px; line-height: 1; }
+.sym { font: 500 .6em var(--ui); margin-right: .06em; }
 
-.rule { height: 1px; background: var(--line); border: 0; margin: 2px 0; }
+/* The promised number, marked with a highlighter. */
+.marked { background: var(--marker); }
+
+/* ---- the stamp -------------------------------------------------------- */
+
+.stamp {
+  display: inline-block;
+  padding: 7px 12px;
+  border: 2.5px solid currentColor;
+  border-radius: 8px;
+  /* Paper gap, then an inner ring — this is what makes it read as rubber
+     rather than as a border. */
+  box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3.5px currentColor;
+  font: 800 12px/1 var(--ui);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+  animation: nrStamp .5s cubic-bezier(.2, .8, .2, 1) both;
+  margin: 6px 0 0 4px;
+}
+.stamp--ok { color: var(--ok); }
+.stamp--fail { color: var(--fail); }
+.stamp--warn { color: var(--plum); }
 
 /* ---- buttons ---------------------------------------------------------- */
 
 .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  padding: 16px;
+  height: 56px;
   border: 0;
   border-radius: 14px;
-  background: var(--ink);
-  color: var(--paper);
-  font: 600 16px/1 var(--ui);
+  background: var(--plum);
+  color: #fff;
+  font: 600 17px var(--ui);
   cursor: pointer;
+  padding: 0 12px;
+  text-align: center;
 }
-.btn:disabled { opacity: 0.35; cursor: default; }
-.btn--ghost {
-  background: transparent;
-  color: var(--plum);
-  border: 1px solid var(--line-strong);
-}
-.btn--quiet { background: transparent; color: var(--muted); border: 0; padding: 12px; }
+.btn:hover { background: var(--plum-dark); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .4; cursor: default; transform: none; }
 
-.bigchoice {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: flex-start;
-  text-align: left;
-  width: 100%;
-  padding: 18px;
-  border: 1px solid var(--line-strong);
-  border-radius: 18px;
-  background: var(--card);
+.btn--secondary {
+  height: 52px;
+  background: transparent;
+  border: 1.5px solid var(--plum-30);
+  color: var(--plum);
+}
+.btn--secondary:hover { background: var(--plum-08); }
+
+.chipbtn {
+  font: 600 12px var(--ui);
+  color: var(--plum);
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--plum-08);
   cursor: pointer;
 }
-.bigchoice__t { font: 600 18px/1.2 var(--ui); }
-.bigchoice__p { font: 500 13px/1.2 var(--ui); color: var(--plum); }
-.bigchoice__s { font: 400 13px/1.4 var(--ui); color: var(--muted); }
-.bigchoice:disabled { opacity: 0.45; cursor: default; }
+
+/* ---- home ------------------------------------------------------------- */
+
+.pricecard {
+  margin-top: 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+.live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  font: 400 13px var(--ui);
+}
+.live__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--apricot);
+  animation: nrPulse 2s ease-in-out infinite;
+  flex: none;
+}
+
+/* Cash out is the filled one; cash in is the outlined one. The asymmetry is
+   the point — the app does two things and says which it expects. */
+.choice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 18px;
+  padding: 20px 20px 18px;
+  cursor: pointer;
+  background: var(--plum);
+  color: #fff;
+}
+.choice:hover { background: var(--plum-dark); }
+.choice:active { transform: scale(.99); }
+.choice--out { background: var(--card); color: var(--ink); border: 1px solid var(--line); margin-top: 10px; }
+.choice--out:hover { background: var(--card); border-color: var(--plum); }
+.choice__top { display: flex; justify-content: space-between; align-items: center; }
+.choice__kind { font: 600 11px/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
+.choice--out .choice__kind { opacity: 1; color: var(--muted); }
+.choice__arrow { font: 400 22px/1 var(--ui); }
+.choice--out .choice__arrow { color: var(--plum); }
+.choice__pair { font: 400 30px/1.1 var(--serif); margin-top: 10px; }
+.choice__note { font: 400 14px/1.4 var(--ui); opacity: .85; margin: 6px 0 0; }
+.choice--out .choice__note { opacity: 1; color: var(--muted-2); }
+
+/* ---- panels and rows -------------------------------------------------- */
+
+.panel {
+  margin-top: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+/* The money card on a failure carries the outcome's colour on its edge. */
+.panel--edge { border-left: 4px solid currentColor; }
+.panel__lead { font: 600 17px/1.3 var(--ui); color: var(--ink); margin: 0; }
+.panel__detail { font: 400 14px/1.45 var(--ui); color: var(--muted-2); margin: 6px 0 0; text-wrap: pretty; }
+
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.row + .row { margin-top: 10px; }
+.row__k { font: 400 14px var(--ui); color: var(--muted); }
+.row__v { font: 600 14px var(--ui); text-align: right; }
+
+.section { margin-top: 18px; }
+.section--lead { margin-top: 22px; }
 
 /* ---- keypad ----------------------------------------------------------- */
 
-.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: auto; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
 .pad button {
-  padding: 17px 0;
-  border: 0;
-  border-radius: 12px;
-  background: var(--card);
+  height: 56px;
   border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
   font: 500 21px/1 var(--ui);
   color: var(--ink);
   cursor: pointer;
 }
-.pad button:active { background: var(--board); }
+.pad button:active { background: var(--paper); transform: scale(.98); }
 
-/* ---- misc ------------------------------------------------------------- */
-
-.chip {
-  display: inline-flex;
+.unit {
+  flex: none;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 17px;
+  background: var(--paper);
+  border: 0;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--card);
-  font: 500 12.5px/1 var(--ui);
-  cursor: pointer;
+  font: 600 13px var(--ui);
   color: var(--ink);
+  cursor: pointer;
 }
-.trust { font: 400 12.5px/1.5 var(--ui); color: var(--muted); margin: 0; }
-.notice { font: 400 13px/1.45 var(--ui); color: var(--warn); margin: 0; }
-.ref { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
-.spacer { flex: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, .stamp, .live__dot { animation: none !important; transition: none !important; }
+}
 
 /* ---- development-only host readout ------------------------------------ */
 
 .probe {
   background: var(--card);
-  border: 1px dashed var(--line-strong);
+  border: 1px dashed var(--line);
   border-radius: 12px;
   padding: 10px 14px;
   margin: 12px 20px 0;
@@ -232,7 +326,7 @@ input:focus { outline: none; }
 .probe__summary { cursor: pointer; color: var(--muted); }
 .probe__list { margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; }
 .probe__row { display: flex; justify-content: space-between; gap: 12px; }
-.probe__row dt { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.probe__row dt { color: var(--muted); font: 400 12px ui-monospace, Menlo, monospace; }
 .probe__row dd { margin: 0; font-weight: 600; }
 .probe__absent { color: var(--fail); font-weight: 400; }
 .probe__actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
@@ -246,4 +340,4 @@ input:focus { outline: none; }
   font-size: 13px;
   cursor: pointer;
 }
-.probe__actions button:disabled { opacity: 0.45; cursor: default; }
+.probe__actions button:disabled { opacity: .45; cursor: default; }
