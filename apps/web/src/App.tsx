@@ -8,6 +8,7 @@ import {
 import type { State } from "@ramp/machine";
 import {
   connect,
+  currentSession,
   getProvider,
   hostLanguage,
   sendToken,
@@ -72,6 +73,38 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+
+  /*
+   * Nimiq Pay can change account or network under us. Without this the header
+   * keeps showing the address from connect time, and an order would be built
+   * against a wallet the user has already moved on from.
+   */
+  useEffect(() => {
+    let provider;
+    try {
+      provider = getProvider();
+    } catch {
+      return; // No wallet here — a browser during development.
+    }
+
+    const resync = () => {
+      void currentSession(provider)
+        .then((live) => setSession(live))
+        .catch(() => setSession(null));
+    };
+
+    const injected = provider as unknown as {
+      on?: (event: string, handler: () => void) => void;
+      removeListener?: (event: string, handler: () => void) => void;
+    };
+
+    injected.on?.("accountsChanged", resync);
+    injected.on?.("chainChanged", resync);
+    return () => {
+      injected.removeListener?.("accountsChanged", resync);
+      injected.removeListener?.("chainChanged", resync);
+    };
+  }, []);
 
   useEffect(() => {
     let stop = false;
@@ -171,19 +204,23 @@ export function App() {
     setAccount(null);
     setStep("cashin_pay");
 
-    if (session === null) {
-      setOrderError("Connect your Nimiq Pay wallet first — the stablecoin needs somewhere to land.");
-      return;
-    }
-
     try {
+      const live = await currentSession(getProvider());
+      if (live === null) {
+        setOrderError(
+          "Connect your Nimiq Pay wallet first — the stablecoin needs somewhere to land.",
+        );
+        return;
+      }
+      setSession(live);
+
       const order = await createOrder({
         direction: "cash_in",
         corridor,
         chain: chain.slug,
         symbol,
         amount: typed,
-        address: session.address,
+        address: live.address,
         // Where the money returns if the on-ramp fails. The rail requires it
         // on a fiat source and refuses the order without one.
         refundAccount,
@@ -204,10 +241,6 @@ export function App() {
    * property that keeps us out of the custody path.
    */
   async function startCashOut() {
-    if (session === null) {
-      setOrderError("Connect your Nimiq Pay wallet first.");
-      return;
-    }
     if (recipient === null) {
       setOrderError("Choose where the money should go first.");
       return;
@@ -217,14 +250,26 @@ export function App() {
     setSending(true);
 
     try {
+      // Read the wallet now rather than trusting the session from connect
+      // time. The refund address has to be the account the stablecoin
+      // actually leaves, or a failed payout returns it somewhere the sender
+      // is no longer using.
+      const live = await currentSession(getProvider());
+      if (live === null) {
+        setOrderError("Your wallet is not connected. Open this inside Nimiq Pay and connect.");
+        return;
+      }
+      setSession(live);
+
       const order = await createOrder({
         direction: "cash_out",
         corridor,
-        chain: chain.slug,
+        chain: live.chain.slug,
         symbol,
         amount,
-        // Our own wallet: where the stablecoin returns if the payout fails.
-        address: session.address,
+        // The connected wallet: where the stablecoin returns if the payout
+        // cannot be made.
+        address: live.address,
         recipient,
       });
       setReference(order.ref);
@@ -235,9 +280,9 @@ export function App() {
       }
 
       await sendToken(getProvider(), {
-        chain: chain.slug,
+        chain: live.chain.slug,
         symbol,
-        from: session.address,
+        from: live.address,
         to: order.receiveAddress,
         amount,
       });

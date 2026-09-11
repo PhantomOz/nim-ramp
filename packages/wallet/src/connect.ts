@@ -54,6 +54,32 @@ export async function switchChain(
 }
 
 /**
+ * The account and chain the wallet is on *right now*.
+ *
+ * `connect()` captures a session once. People switch accounts and networks in
+ * Nimiq Pay afterwards, and on a cash-out a stale address is not cosmetic:
+ * the stablecoin leaves whichever account the wallet is on now, while the
+ * refund address would still name the one captured earlier — so a payout that
+ * fails returns the money to an account the sender has moved on from.
+ *
+ * Uses `eth_accounts`, which reports what is already authorised without
+ * prompting. `eth_requestAccounts` raises a dialog, and doing that silently
+ * before every order would be an ambush.
+ *
+ * Returns null when nothing is connected.
+ */
+export async function currentSession(provider: Eip1193): Promise<Session | null> {
+  const accounts = (await provider.request({ method: "eth_accounts" })) as string[];
+  const address = accounts[0];
+  if (address === undefined) return null;
+
+  const chain = await currentChain(provider);
+  if (chain === null) return null;
+
+  return { address, chain };
+}
+
+/**
  * Ask the wallet for an account and settle which chain we are ramping on.
  *
  * If the wallet is already on a chain both Nimiq Pay and Paycrest serve, it

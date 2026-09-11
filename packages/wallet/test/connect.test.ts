@@ -1,6 +1,12 @@
 import { expect, test } from "vitest";
 
-import { connect, getProvider, WalletError, type Eip1193 } from "../src/index.js";
+import {
+  connect,
+  currentSession,
+  getProvider,
+  WalletError,
+  type Eip1193,
+} from "../src/index.js";
 
 function fakeWallet(replies: Record<string, unknown>) {
   const seen: { method: string; params?: unknown[] }[] = [];
@@ -80,4 +86,38 @@ test("a wallet that returns no accounts is an error, not an empty session", asyn
     eth_chainId: "0x89",
   });
   await expect(connect(provider)).rejects.toThrow(WalletError);
+});
+
+test("the live account is re-read, not remembered from connect time", async () => {
+  // Someone can switch accounts in Nimiq Pay after connecting. On a cash-out
+  // that matters twice over: the stablecoin leaves whichever account the
+  // wallet is on now, while the refund address would still point at the one
+  // we captured earlier — so a failed payout returns the money to an account
+  // the sender is no longer using.
+  const { provider } = fakeWallet({
+    eth_accounts: ["0xDEF0000000000000000000000000000000000002"],
+    eth_chainId: "0x89",
+  });
+
+  const live = await currentSession(provider);
+  expect(live?.address).toBe("0xDEF0000000000000000000000000000000000002");
+  expect(live?.chain.slug).toBe("polygon");
+});
+
+test("a wallet that has been disconnected reports no session", async () => {
+  // eth_accounts returns empty when the user revokes access — distinct from
+  // eth_requestAccounts, which would prompt them again.
+  const { provider } = fakeWallet({ eth_accounts: [], eth_chainId: "0x89" });
+  expect(await currentSession(provider)).toBeNull();
+});
+
+test("re-reading does not prompt the user", async () => {
+  // eth_requestAccounts raises a dialog. Doing that silently before every
+  // order would be an ambush.
+  const { provider, seen } = fakeWallet({
+    eth_accounts: ["0xABC0000000000000000000000000000000000001"],
+    eth_chainId: "0x89",
+  });
+  await currentSession(provider);
+  expect(seen.map((s) => s.method)).not.toContain("eth_requestAccounts");
 });
