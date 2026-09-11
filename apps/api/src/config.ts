@@ -61,6 +61,8 @@ export function loadConfig(env: Env): Config {
     enabledCorridors: CORRIDORS.filter((c) =>
       flag(env[`CORRIDOR_${c}_ENABLED`]),
     ),
-    port: portRaw === undefined || portRaw === "" ? 8787 : Number(portRaw),
+    // 8788 matches the Vite proxy's default target. With the two defaults
+    // disagreeing, running both with no PORT set points the proxy at nothing.
+    port: portRaw === undefined || portRaw === "" ? 8788 : Number(portRaw),
   };
 }
