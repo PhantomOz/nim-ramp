@@ -1,0 +1,719 @@
+<title>Four Corridors</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F3F5F3;
+  --surface:#FFFFFF;
+  --surface-2:#EAEEEB;
+  --ink:#16201C;
+  --ink-2:#33413B;
+  --muted:#5E6B65;
+  --faint:#8A968F;
+  --rule:#D6DDD8;
+  --rule-strong:#B9C4BD;
+  --accent:#0F6B4F;
+  --accent-ink:#0B4E39;
+  --accent-wash:#E2EDE7;
+  --warn:#8A5D12;
+  --warn-wash:#F5EBD8;
+  --crit:#9C3626;
+  --crit-wash:#F6E3DE;
+  --ok:#3D6B4A;
+  --shadow:0 1px 2px rgba(22,32,28,.06), 0 8px 24px -16px rgba(22,32,28,.28);
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#101714;
+    --surface:#16201C;
+    --surface-2:#1D2925;
+    --ink:#E6EDE9;
+    --ink-2:#C3CFC9;
+    --muted:#94A29B;
+    --faint:#6E7C76;
+    --rule:#2A3833;
+    --rule-strong:#3B4B45;
+    --accent:#5FBF97;
+    --accent-ink:#8FD6B6;
+    --accent-wash:#172C24;
+    --warn:#D9AC63;
+    --warn-wash:#2C2417;
+    --crit:#E08A76;
+    --crit-wash:#2E1D19;
+    --ok:#7FB78F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101714;
+  --surface:#16201C;
+  --surface-2:#1D2925;
+  --ink:#E6EDE9;
+  --ink-2:#C3CFC9;
+  --muted:#94A29B;
+  --faint:#6E7C76;
+  --rule:#2A3833;
+  --rule-strong:#3B4B45;
+  --accent:#5FBF97;
+  --accent-ink:#8FD6B6;
+  --accent-wash:#172C24;
+  --warn:#D9AC63;
+  --warn-wash:#2C2417;
+  --crit:#E08A76;
+  --crit-wash:#2E1D19;
+  --ok:#7FB78F;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:820px;margin:0 auto;padding:0 28px 96px}
+
+/* masthead */
+.mast{border-bottom:1px solid var(--rule-strong);padding:44px 0 20px;margin-bottom:32px}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:20px;
+}
+.eyebrow .dot{width:4px;height:4px;border-radius:50%;background:var(--rule-strong)}
+.eyebrow .rev{color:var(--accent-ink)}
+h1{
+  font-family:var(--serif);font-weight:500;font-size:clamp(38px,6vw,54px);line-height:1.06;
+  letter-spacing:-.018em;margin:0 0 14px;text-wrap:balance;
+}
+.standfirst{
+  font-family:var(--serif);font-size:19px;line-height:1.52;color:var(--ink-2);
+  margin:0;max-width:62ch;
+}
+.corridors{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.ccode{
+  font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.05em;
+  color:var(--accent-ink);background:var(--accent-wash);
+  border:1px solid color-mix(in srgb,var(--accent) 26%,transparent);
+  padding:4px 9px;border-radius:3px;
+}
+.ccode.chain{color:var(--muted);background:var(--surface-2);border-color:var(--rule)}
+
+/* revision block */
+.revblock{border-left:2px solid var(--accent);padding-left:20px;margin-bottom:40px}
+.revblock .rhead{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:12px;
+}
+.revlist{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.revlist li{display:grid;grid-template-columns:40px 1fr;gap:14px;align-items:baseline;font-size:14.5px;color:var(--ink-2);line-height:1.5}
+@media(max-width:520px){.revlist li{grid-template-columns:34px 1fr;gap:10px}}
+.revlist .ref{font-family:var(--mono);font-size:11.5px;color:var(--muted);font-weight:500}
+
+/* fact strip */
+.facts{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:0;border:1px solid var(--rule);border-radius:5px;overflow:hidden;
+  background:var(--surface);margin-bottom:52px;
+}
+.fact{padding:16px 18px;border-right:1px solid var(--rule)}
+.fact:last-child{border-right:none}
+.fact dt{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px;
+}
+.fact dd{margin:0;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.fact dd small{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:2px}
+
+/* sections */
+section{margin-bottom:52px}
+h2{
+  font-family:var(--serif);font-weight:600;font-size:26px;line-height:1.2;letter-spacing:-.01em;
+  margin:0 0 6px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;text-wrap:balance;
+}
+h2 .num{
+  font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);
+  letter-spacing:.06em;flex:none;position:relative;top:-2px;
+}
+.revtag{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+  font-weight:500;padding:3px 7px;border-radius:3px;flex:none;position:relative;top:-3px;
+  color:var(--muted);background:var(--surface-2);border:1px solid var(--rule);
+}
+.revtag.new{color:var(--accent-ink);background:var(--accent-wash);border-color:color-mix(in srgb,var(--accent) 26%,transparent)}
+.deck{color:var(--muted);font-size:14.5px;margin:0 0 22px;max-width:66ch}
+h3{
+  font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:.02em;
+  margin:28px 0 10px;color:var(--ink);
+}
+p{margin:0 0 15px;max-width:68ch}
+a{color:var(--accent-ink);text-decoration-thickness:1px;text-underline-offset:2px}
+code{
+  font-family:var(--mono);font-size:.875em;background:var(--surface-2);
+  padding:1.5px 5px;border-radius:3px;color:var(--ink-2);
+}
+strong{font-weight:600}
+
+/* scope columns */
+.scope{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:640px){.scope{grid-template-columns:1fr}}
+.scope-col{background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:18px 20px}
+.scope-col h3{margin-top:0;display:flex;align-items:center;gap:8px}
+.scope-col h3::before{content:"";width:8px;height:8px;border-radius:2px;flex:none}
+.scope-in h3::before{background:var(--accent)}
+.scope-out h3::before{background:var(--rule-strong)}
+.scope-col ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+.scope-col li{font-size:14.5px;line-height:1.45;padding-left:16px;position:relative;color:var(--ink-2)}
+.scope-col li::before{
+  content:"";position:absolute;left:0;top:.6em;width:7px;height:1px;background:var(--rule-strong);
+}
+.scope-col li em{font-style:normal;color:var(--muted);display:block;font-size:13px;margin-top:1px}
+
+/* flow */
+.flow{
+  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  padding:22px;overflow-x:auto;margin-bottom:20px;
+}
+.leg{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.leg + .leg{margin-top:14px;padding-top:14px;border-top:1px dashed var(--rule)}
+.node{
+  padding:6px 11px;border-radius:3px;border:1px solid var(--rule-strong);
+  background:var(--paper);color:var(--ink);font-weight:500;
+}
+.node.ext{border-style:dashed;color:var(--muted)}
+.node.hl{background:var(--accent-wash);border-color:color-mix(in srgb,var(--accent) 32%,transparent);color:var(--accent-ink)}
+.arw{color:var(--faint);flex:none}
+.legtag{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);width:64px;flex:none;
+}
+
+/* state machine */
+.states{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:4px 0 18px}
+.st{
+  font-family:var(--mono);font-size:11.5px;font-weight:500;padding:5px 10px;border-radius:3px;
+  border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-2);
+}
+.st.terminal-ok{background:var(--accent-wash);border-color:color-mix(in srgb,var(--accent) 30%,transparent);color:var(--accent-ink)}
+.st.terminal-bad{background:var(--crit-wash);border-color:color-mix(in srgb,var(--crit) 30%,transparent);color:var(--crit)}
+.states .arw{font-family:var(--mono);font-size:12px}
+
+/* tables */
+.tblwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:5px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:500;padding:11px 16px;
+  border-bottom:1px solid var(--rule-strong);white-space:nowrap;
+}
+td{padding:12px 16px;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+td.days{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+td.milestone{color:var(--ink);font-weight:500}
+td.mono{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.ship td{background:var(--accent-wash)}
+tr.ship td.milestone{color:var(--accent-ink);font-weight:600}
+tr.today td{background:var(--surface-2)}
+tr.done td,tr.done td.milestone{color:var(--faint);font-weight:400}
+.closetag{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 34%,transparent);
+  padding:2px 6px;border-radius:3px;white-space:nowrap;
+}
+.no{color:var(--faint)}
+.yes{color:var(--accent-ink);font-weight:600}
+
+/* proof */
+.proof{border:1px solid var(--rule);border-radius:5px;background:var(--surface);overflow:hidden;margin-bottom:20px}
+.proof-row{padding:18px 20px;border-bottom:1px solid var(--rule)}
+.proof-row:last-child{border-bottom:none}
+.proof-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.proof-head .leg-name{font-family:var(--sans);font-weight:600;font-size:15px;color:var(--ink)}
+.proof-head .ref{font-family:var(--mono);font-size:11.5px;color:var(--accent-ink);background:var(--accent-wash);padding:2px 7px;border-radius:3px}
+.proof-head .when{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
+.proof-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:12px 18px}
+.proof-grid div{min-width:0}
+.proof-grid dt{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.proof-grid dd{margin:0;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.proof-tx{margin-top:12px;font-family:var(--mono);font-size:11.5px;color:var(--muted);word-break:break-all;line-height:1.5}
+.proof-tx b{color:var(--ink-2);font-weight:500}
+
+/* risk */
+.risk{
+  display:grid;grid-template-columns:auto 1fr;gap:0 18px;
+  border-top:1px solid var(--rule);padding:18px 0;
+}
+.risk:last-of-type{border-bottom:1px solid var(--rule)}
+@media(max-width:520px){.risk{grid-template-columns:1fr;gap:10px}}
+.sev{
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:500;padding:4px 8px;border-radius:3px;height:fit-content;white-space:nowrap;
+  border:1px solid transparent;width:fit-content;
+}
+.sev-hi{background:var(--crit-wash);color:var(--crit);border-color:color-mix(in srgb,var(--crit) 26%,transparent)}
+.sev-md{background:var(--warn-wash);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.sev-lo{background:var(--surface-2);color:var(--muted);border-color:var(--rule)}
+.sev-fired{background:transparent;color:var(--faint);border-color:var(--rule-strong)}
+.risk-body h3{margin:0 0 4px;font-size:15px}
+.risk-body p{margin:0;font-size:14.5px;color:var(--muted)}
+.risk-body p.mit{margin-top:7px;color:var(--ink-2)}
+.risk-body p.mit span{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);margin-right:8px;
+}
+.risk-body p.mit.past span{color:var(--faint)}
+
+/* checklist */
+.checks{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:2px}
+.checks li{
+  display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border-radius:4px;
+  font-size:14.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--rule);
+}
+.checks li .box{
+  width:14px;height:14px;border:1.5px solid var(--rule-strong);border-radius:3px;
+  flex:none;margin-top:3px;
+}
+.checks li.ticked .box{background:var(--accent);border-color:var(--accent);position:relative}
+.checks li.ticked .box::after{
+  content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid var(--surface);border-width:0 1.5px 1.5px 0;transform:rotate(42deg);
+}
+.checks li b{font-weight:600;color:var(--ink)}
+
+/* priority bars */
+.prio{display:flex;flex-direction:column;gap:11px;margin-bottom:6px}
+.prow{display:grid;grid-template-columns:180px 1fr 34px;gap:14px;align-items:center;font-size:14px}
+@media(max-width:560px){.prow{grid-template-columns:130px 1fr 32px}}
+.prow .lbl{color:var(--ink-2)}
+.bar{height:7px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.bar.dim i{background:var(--rule-strong)}
+.prow .val{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+
+/* callout */
+.callout{border-left:2px solid var(--accent);padding:2px 0 2px 20px;margin:24px 0}
+.callout p{font-family:var(--serif);font-size:18px;line-height:1.5;color:var(--ink);margin:0}
+.callout p + p{margin-top:10px;font-size:15px;font-family:var(--sans);color:var(--muted)}
+
+/* today block */
+.today-block{background:var(--surface);border:1px solid var(--rule);border-radius:5px;overflow:hidden}
+.today-row{display:grid;grid-template-columns:120px 1fr;gap:18px;padding:16px 20px;border-bottom:1px solid var(--rule)}
+.today-row:last-child{border-bottom:none}
+@media(max-width:560px){.today-row{grid-template-columns:1fr;gap:6px}}
+.today-row .who{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);padding-top:2px}
+.today-row .what{font-size:14.5px;color:var(--ink-2);line-height:1.5}
+.today-row .what b{color:var(--ink);font-weight:600;display:block;margin-bottom:2px}
+
+footer{
+  border-top:1px solid var(--rule-strong);padding-top:20px;margin-top:60px;
+  font-family:var(--mono);font-size:11.5px;color:var(--faint);
+  display:flex;flex-wrap:wrap;gap:6px 18px;
+}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">
+    <span>Engineering Brief</span><span class="dot"></span>
+    <span class="rev">Rev D</span><span class="dot"></span>
+    <span>18 Sep 2026</span><span class="dot"></span>
+    <span>Submission day</span>
+  </div>
+  <h1>Four Corridors</h1>
+  <p class="standfirst">A two-way stablecoin ramp that runs inside Nimiq Pay, moving value between local currency and USDT or USDC in four African markets, across every chain the wallet carries. Submitted to the Nimiq Mini Apps Competition, Cycle II.</p>
+  <div class="corridors">
+    <span class="ccode">NGN&nbsp;· Nigeria</span>
+    <span class="ccode">KES&nbsp;· Kenya</span>
+    <span class="ccode">TZS&nbsp;· Tanzania</span>
+    <span class="ccode">UGX&nbsp;· Uganda</span>
+  </div>
+  <div class="corridors">
+    <span class="ccode chain">Polygon</span>
+    <span class="ccode chain">Base</span>
+    <span class="ccode chain">Arbitrum One</span>
+    <span class="ccode chain">Ethereum</span>
+    <span class="ccode chain">BNB Smart Chain</span>
+  </div>
+</header>
+
+<div class="revblock">
+  <div class="rhead">Changed in Rev D — what the build found, and where the earlier revisions were wrong</div>
+  <ul class="revlist">
+    <li><span class="ref">§2 §3</span><span><strong>Five chains and two tokens, not USDT on Polygon.</strong> Rev C described the settlement leg as if Polygon were the product. It was only the first chain we tested. Nimiq Pay injects a standard EIP-1193 provider, so every chain it carries is ours for the cost of a registry entry: Polygon, Base, Arbitrum One, Ethereum and BNB Smart Chain, each in both USDT and USDC. Optimism is the one exception and the reason this is a §3 note rather than a one-line change.</span></li>
+    <li><span class="ref">§2</span><span><strong>Availability is not a matrix, and Rev C nearly shipped one.</strong> We recorded a liquidity snapshot as though it were permanent capability, which would have told a Tanzanian user their corridor could not be cashed into — a sentence that was false the moment a provider came back online. The rail serves both directions in every currency it supports. What varies is whether a provider is quoting right now, and that is a runtime answer, not a table.</span></li>
+    <li><span class="ref">§3 §7</span><span><strong>Cash-out needs gas the wallet does not have.</strong> Nothing in any earlier revision anticipated this. A wallet paid by a cash-in holds stablecoin and no native token at all, so the very next thing anyone tries is unaffordable. The server now seeds the fee — about two cents on Polygon — and the alternatives we rejected are recorded, because they were all more attractive on paper.</span></li>
+    <li><span class="ref">§4</span><span><strong>Both legs are live on mainnet.</strong> Not a claim in a brief. Two settled orders with hashes anyone can check, in §4, and the failure states have been walked because there was never a sandbox in which to walk them cheaply.</span></li>
+  </ul>
+</div>
+
+<dl class="facts">
+  <div class="fact"><dt>Status</dt><dd>Shipped<small>Both legs, live</small></dd></div>
+  <div class="fact"><dt>Corridors</dt><dd>4<small>NGN KES TZS UGX</small></dd></div>
+  <div class="fact"><dt>Chains</dt><dd>5<small>USDT and USDC on each</small></dd></div>
+  <div class="fact"><dt>Fee</dt><dd>0.5%<small>Charged by the rail</small></dd></div>
+  <div class="fact"><dt>Tests</dt><dd>197<small>7 skipped, live-only</small></dd></div>
+</dl>
+
+<section>
+  <h2><span class="num">§0</span> Today <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">Rev C&rsquo;s §0 was a list of spikes on the first build morning. Eight days on, this is what is actually left between here and the submission form.</p>
+  <div class="today-block">
+    <div class="today-row">
+      <span class="who">Done</span>
+      <span class="what"><b>The product.</b> Both directions, four corridors, five chains, two tokens, every state in §4 with a screen behind it. A cash-in and a cash-out have each settled on mainnet with real money — the hashes are in §4.</span>
+    </div>
+    <div class="today-row">
+      <span class="who">Open</span>
+      <span class="what"><b>The fee address.</b> Our 0.5% is paid to a <code>senderFeeAddress</code> configured in the rail&rsquo;s dashboard rather than in our code. It needs confirming as an address the team lead controls before more volume runs through it. This is the only open item touching money.</span>
+    </div>
+    <div class="today-row">
+      <span class="who">Open</span>
+      <span class="what"><b>The submission pack.</b> Demo video, 250-word description, and the team lead&rsquo;s legal name in <code>LICENSE</code> — currently a placeholder, which fails the MIT requirement in §8 on a technicality that costs nothing to fix.</span>
+    </div>
+    <div class="today-row">
+      <span class="who">Not doing</span>
+      <span class="what"><b>Gasless cash-out.</b> Scoped, costed and deliberately deferred — see §3. It is the right next build and it is the wrong thing to start on a submission morning.</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">§1</span> Why this one <span class="revtag">Carried from Rev A</span></h2>
+  <p class="deck">The competitive read, in short, because it determines what we optimise for. Unchanged since Rev A, and the build has not given us a reason to revisit it.</p>
+  <p>Seventy-three mini apps have been submitted across both cycles of this competition. I read every one. They include four rotating-savings apps, five bill splitters, six tip jars, seven AI assistants, and a dozen games.</p>
+  <p><strong>Not one of them touches fiat.</strong> Every entry moves value inside the crypto system and stops there. Nobody connects to a bank account, a mobile money account, or cash.</p>
+  <p>That gap exists because a ramp is not a coding problem. It needs rails, liquidity, and compliance clearance — none of which a team can acquire in a four-week competition. We already have all three, across four corridors, in both directions. That is the entire thesis: <strong>our advantage is not the code, and therefore cannot be copied during the event.</strong></p>
+  <div class="callout">
+    <p>Nimiq built OASIS and Fastspot to solve exactly this — a non-custodial bridge between crypto and real money. After five years it reaches one currency, the euro, through one German bank.</p>
+    <p>We are extending their own unsolved flagship problem into four markets they cannot reach. That framing goes in the submission description and gets said aloud on the community call.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">§2</span> What we built <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">Completeness is an explicitly scored criterion and Rev B read it at full width — both directions, all four corridors, nothing dropped. That held. Rev D widens it again, because the platform turned out to give away more than we had been claiming.</p>
+  <div class="scope">
+    <div class="scope-col scope-in">
+      <h3>Shipped</h3>
+      <ul>
+        <li>Cash out<em>Stablecoin in Nimiq Pay → local currency</em></li>
+        <li>Cash in<em>Local currency → stablecoin in Nimiq Pay</em></li>
+        <li>All four corridors<em>NGN, KES, TZS, UGX — each behind its own flag</em></li>
+        <li>Five chains, two tokens<em>USDT and USDC on each; see §3</em></li>
+        <li>Live quote and rate display<em>Final receivable amount shown before confirm</em></li>
+        <li>Every state in §4<em>Including the ugly ones. This is the product.</em></li>
+        <li>Gas seeding for cash-out<em>New in Rev D — see §3</em></li>
+        <li>Localisation via <code>window.nimiqPay.language</code></li>
+        <li>Transaction cap and kill switch<em>Both fail closed — see §7</em></li>
+      </ul>
+    </div>
+    <div class="scope-col scope-out">
+      <h3>Not shipped</h3>
+      <ul>
+        <li>On-chain NIM receipt<em>The one scope item that did not land. Rev C gated it on shipping with its verification view, and that gate held — an unverifiable receipt is decoration.</em></li>
+        <li>NIM as a transport leg<em>No liquidity path exists — see §3</em></li>
+        <li>Optimism<em>Nimiq Pay carries it. The rail refuses it. See §3.</em></li>
+        <li>Tron<em>Nimiq Pay does not support it. Irrelevant to us.</em></li>
+        <li>Custom wallet or key handling<em>Nimiq Pay mediates everything</em></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>The correction that matters most</h3>
+  <p>Rev C carried a support matrix: a table of which corridors could be cashed into and out of, built by probing the rail once and writing down what it said. It was wrong in kind, not in detail.</p>
+  <p>The rail serves both directions in every currency it supports. What it had actually told us was which provider was quoting at the moment we asked — a liquidity reading, not a capability. Shipped as a matrix it would have told a Tanzanian user, permanently and in confident type, that their corridor could not be cashed into. That sentence would have become false the next time a provider came online, and nothing in our code would ever have noticed.</p>
+  <p>So the table is gone. Refusals are classified when they happen: <strong>structural</strong> (this token is not on this network, this currency is not served), <strong>no&nbsp;liquidity</strong> (no provider for that amount right now), or <strong>unknown</strong>, which we show as the rail&rsquo;s own words rather than paraphrasing a guess. A no-liquidity refusal invites the user to try a different amount. A structural one does not, because it will not change.</p>
+  <p>The general form of the mistake is worth naming, because it is cheap to make again: <em>we recorded a snapshot of a remote system as though it were a property of that system.</em></p>
+
+  <h3>The corridors are not shaped alike</h3>
+  <p>A detail with real UI consequences, found by reading the rail&rsquo;s institution list per corridor rather than assuming one shape. <strong>Nigeria returns 171 banks and no mobile money at all. Uganda returns two mobile-money providers and no banks.</strong> Kenya and Tanzania sit between them.</p>
+  <p>A single &ldquo;choose your bank&rdquo; screen serves neither market honestly. The picker takes its labels and its search behaviour from the corridor: searching 171 institutions needs a filter, choosing between two does not, and calling a mobile-money account a bank account is the kind of detail a local user reads as evidence that the product was not built for them.</p>
+</section>
+
+<section>
+  <h2><span class="num">§3</span> Architecture <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">A mini app is a web app in a WebView inside Nimiq Pay, talking to injected wallet providers. There is no chain integration work — which is exactly why the chain list is as long as it is.</p>
+
+  <div class="flow">
+    <div class="leg">
+      <span class="legtag">Cash in</span>
+      <span class="node ext">NGN / KES / TZS / UGX</span><span class="arw">→</span>
+      <span class="node">our onramp</span><span class="arw">→</span>
+      <span class="node hl">USDT · USDC</span><span class="arw">→</span>
+      <span class="node">Nimiq Pay wallet</span>
+    </div>
+    <div class="leg">
+      <span class="legtag">Cash out</span>
+      <span class="node">Nimiq Pay wallet</span><span class="arw">→</span>
+      <span class="node hl">USDT · USDC</span><span class="arw">→</span>
+      <span class="node">our offramp</span><span class="arw">→</span>
+      <span class="node ext">NGN / KES / TZS / UGX</span>
+    </div>
+  </div>
+
+  <h3>The chain list is an intersection, and it does not match either side&rsquo;s documentation</h3>
+  <p>Nimiq Pay supports one set of chains. Paycrest serves another. We ship the overlap — and both published lists turned out to disagree with the systems they describe, in opposite directions, so every row below was probed live on 10 September rather than read.</p>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>Chain</th><th>Nimiq Pay</th><th>The rail</th><th>Ours</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td class="milestone">Polygon</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">shipped</td><td>First corridor tested; both live transactions in §4 ran here</td></tr>
+        <tr><td class="milestone">Base</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">shipped</td><td>Cheapest gas of the five by two orders of magnitude</td></tr>
+        <tr><td class="milestone">Arbitrum One</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">shipped</td><td>The rail&rsquo;s slug is <code>arbitrum-one</code>, never <code>arbitrum</code></td></tr>
+        <tr><td class="milestone">Ethereum</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">shipped</td><td>Shipped, but the most expensive place to seed gas — §7</td></tr>
+        <tr><td class="milestone">BNB Smart Chain</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">shipped</td><td><strong>18 decimals</strong>, not 6. The outlier below.</td></tr>
+        <tr class="done"><td class="milestone">Optimism</td><td class="yes">yes</td><td class="no">docs say yes</td><td class="no">out</td><td>The API answers <em>&ldquo;Token USDT is not supported on network optimism&rdquo;</em></td></tr>
+        <tr class="done"><td class="milestone">Celo, Lisk, Starknet</td><td class="no">no</td><td class="yes">yes</td><td class="no">out</td><td>The rail serves them; the wallet does not carry them</td></tr>
+        <tr class="done"><td class="milestone">Tron</td><td class="no">no</td><td class="yes">yes</td><td class="no">out</td><td>Why our existing Tron offramp is irrelevant here</td></tr>
+        <tr class="done"><td class="milestone">Sepolia</td><td class="yes">yes</td><td class="no">no</td><td class="no">out</td><td>The rail is mainnet-only — §7</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Every contract address and decimal in the registry was read from the chain itself rather than from memory or documentation. That is not diligence theatre: <strong>USDT and USDC on BNB Smart Chain carry eighteen decimals where every other chain uses six.</strong> Treating that pair as six-decimal tokens sends a trillion times the intended amount, and it is the single most expensive assumption in the codebase. It is also exactly the kind of fact a language model recalls confidently and wrongly, which is why the rule is to read it.</p>
+
+  <h3>The rail</h3>
+  <p>Both directions are one endpoint. <code>POST /v2/sender/orders</code> takes polymorphic <code>source</code> and <code>destination</code> objects — <code>{type:&nbsp;"crypto"}</code> into <code>{type:&nbsp;"fiat"}</code> is a cash-out, the reverse is a cash-in — and returns a <code>providerAccount</code> holding either the address to send stablecoin to or the bank details to pay into, with a <code>validUntil</code>. Rates come from the public <code>GET /v2/rates/{network}/{from}/{amount}/{to}</code>, which needs no key. Progress arrives as <code>payment_order.*</code> webhooks signed with <code>X-Paycrest-Signature</code>, an HMAC-SHA256 of the raw body — verified against the exact bytes received, because verifying against a re-serialised object fails on key order and the tempting fix is to loosen the check until it passes, at which point the signature is decoration.</p>
+  <p>Our 0.5% rides on the rail&rsquo;s own <code>senderFeePercent</code> rather than being arithmetic we do. It is charged where the rail charges it, appears on the rail&rsquo;s record of the order, and shows on the receipt as the rail reported it — so our receipt cannot disagree with the ledger it describes.</p>
+
+  <h3>Cash-out needs gas, and the wallet does not have any</h3>
+  <p>The problem no revision saw coming, found by trying to sell after buying. A cash-in lands stablecoin in a wallet holding <em>no native token at all</em>. The very next thing anyone does is try to send it back out, and they cannot pay the network fee. The wallet says <em>insufficient gas</em>, which is a dead end a user cannot act on and which sounds like our bug.</p>
+  <p>The server now covers it: it reads the wallet&rsquo;s balance over its own RPC, sends the shortfall, and waits for it to land before the app asks for a signature. On Polygon that is <strong>0.05 POL, about two cents</strong>, once per order, and only ever to the address that owns that order. It is a faucet, so it is almost entirely refusal — one payout per order, only the shortfall, never above a per-chain ceiling, never past a daily budget, and priced per chain because half a POL is twenty cents and half an ETH is a car.</p>
+  <p>Three more attractive options were rejected, and the reasoning is recorded because each one looks like the obvious answer:</p>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>Approach</th><th>Why it looked right</th><th>Why not</th></tr></thead>
+      <tbody>
+        <tr><td class="milestone">Pimlico / ERC-4337</td><td>A paymaster is purpose-built for exactly this</td><td>Sponsors UserOperations from smart accounts. Nimiq Pay&rsquo;s wallet is an EOA, and a 4337 paymaster cannot pay for an EOA&rsquo;s transaction. EIP-7702 changes this in principle, but needs a signing method injected providers are even less likely to expose.</td></tr>
+        <tr><td class="milestone">OpenGSN</td><td>It is what Nimiq&rsquo;s own wallet uses for gasless USDC</td><td>Relays call the target through a Forwarder, so the target must be ERC-2771 aware. USDT and USDC are not — a relayed transfer would move the Forwarder&rsquo;s tokens. Nimiq solved this by deploying their own recipient contract; we would need one per chain.</td></tr>
+        <tr><td class="milestone">EIP-2612 permit</td><td>Both tokens answer <code>PERMIT_TYPEHASH</code>; no contract to deploy</td><td>The better product, and still the right next build. It needs an EIP-712 signature from the injected provider that nothing documents, and two to three days. Neither was available on the last morning.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>All three share one gate: the wallet must sign typed data. The seeded fee does not care, works on all five chains and both tokens today, and stays useful as the fallback if the signature route later works. <strong>EIP-3009 <code>transferWithAuthorization</code> is the version to build next</strong> — one call instead of two, and the authorisation names the recipient, so the signature cannot be used to move funds anywhere else.</p>
+
+  <h3>The fee bug underneath the gas bug</h3>
+  <p>Worth recording because the diagnosis was wrong twice. After seeding the fee, cash-out still failed — and the wallet held 0.0506 POL against 0.0192 needed, a 2.6× surplus, with a transaction count of zero. It had never broadcast anything.</p>
+  <p>We were sending no fee fields at all and leaving the wallet to choose. <strong>Polygon&rsquo;s validators enforce a 25 gwei minimum priority fee</strong>; a wallet carrying Ethereum-shaped defaults picks one or two, and the network refuses the transaction as underpriced. The refusal mentions the fee, so it reads as a shortfall on a wallet that has plenty. The app now prices its own transactions: the node&rsquo;s suggested priority fee raised to the chain&rsquo;s floor, inside a cap of twice the base fee.</p>
+
+  <h3>What the platform gives us free</h3>
+  <p>Stablecoins are exposed through the standard injected <code>window.ethereum</code> provider with no additional setup, which is the whole reason five chains cost about as much as one. Nimiq-native calls come through <code>@nimiq/mini-app-sdk</code>. Keys never leave the wallet, and every sensitive action raises a native confirmation dialog we cannot bypass or restyle — good for us, because it means we are never in the custody path.</p>
+  <p>Deeplinks open the app directly inside Nimiq Pay from any domain — <code>nimiqpay://miniapp?url=</code> or <code>https://nimpay.app/miniapps/open/</code>. That is how a user hands the app to another user, and it costs us nothing to support.</p>
+
+  <h3>Why NIM is not in the design</h3>
+  <p>Nimiq&rsquo;s L1 is not EVM-compatible, so there is no AMM and no DEX. The only non-custodial path to NIM is Fastspot, which quotes against euro through a single regulated German bank, with API access behind a waitlist. There is no programmatic route from our corridors to NIM. We settle in stablecoin and forgo the NIM bonus points deliberately — the rules permit <em>&ldquo;USDT, NIM, or both.&rdquo;</em></p>
+</section>
+
+<section>
+  <h2><span class="num">§4</span> The state machine is the product <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">The single most important engineering decision in this brief, and the one that has survived every revision untouched. Rev D adds the only thing it was missing: evidence that it runs.</p>
+  <p>Build the transaction state machine, the status view, and the receipt <strong>first</strong> — before the happy path, before any styling. The scoring makes the reason explicit: <em>&ldquo;Error handling — failures are caught and explained clearly instead of crashing or freezing.&rdquo;</em> A game with a rough edge is forgivable. A payments app where someone&rsquo;s money disappears into a spinner is the worst possible thing to put in front of a judge, and the worst possible thing to do to a real user.</p>
+  <div class="states">
+    <span class="st">quoted</span><span class="arw">→</span>
+    <span class="st">confirmed</span><span class="arw">→</span>
+    <span class="st">submitted</span><span class="arw">→</span>
+    <span class="st">settling</span><span class="arw">→</span>
+    <span class="st terminal-ok">completed</span>
+  </div>
+  <div class="states">
+    <span class="st">quote_expired</span>
+    <span class="st">rejected</span>
+    <span class="st">refunding</span>
+    <span class="st terminal-bad">failed_refunded</span>
+    <span class="st terminal-bad">failed_manual</span>
+    <span class="st">stalled</span>
+  </div>
+  <p><code>refunding</code> is not in Rev A&rsquo;s list because Rev A was written before we knew the rail. It sits between a failure and the money landing back, and it is not the same thing as <code>settling</code> — one means your transaction is working, the other means it failed and you are being repaid. Conflating them is precisely the &ldquo;caught and explained clearly&rdquo; failure the rubric names. <code>failed_manual</code> surfaces a reference the user can quote and a way to reach a human. <code>stalled</code> appears automatically after a settlement window rather than leaving anyone staring at <code>settling</code> indefinitely.</p>
+  <p>One state machine serves both legs, and that is what made full scope arithmetic rather than optimism. The states are direction-agnostic — <code>settling</code> is settling whether we are waiting on a bank payout or an inbound deposit — so the second direction was a set of adapters instead of a second product.</p>
+
+  <h3>It runs. Here is the proof.</h3>
+  <p>There is no sandbox (§7), so every state above was exercised with real money on a mainnet rail. Two orders, one per direction, both settled:</p>
+  <div class="proof">
+    <div class="proof-row">
+      <div class="proof-head">
+        <span class="leg-name">Cash in</span>
+        <span class="ref">NR-9YMLZL99</span>
+        <span class="when">first settled order</span>
+      </div>
+      <dl class="proof-grid">
+        <div><dt>Paid</dt><dd>₦2,000</dd></div>
+        <div><dt>Received</dt><dd>1.454175 USDT</dd></div>
+        <div><dt>Rate</dt><dd>1,375.35</dd></div>
+        <div><dt>Our fee</dt><dd>0.0073</dd></div>
+        <div><dt>Settled in</dt><dd>1m 48s</dd></div>
+      </dl>
+      <p class="proof-tx"><b>Polygon block 93630635</b><br>0x19a646c0abc1e03f9f22d9fc92df3536383f092cf343de9a8358a55c7e3bea20</p>
+    </div>
+    <div class="proof-row">
+      <div class="proof-head">
+        <span class="leg-name">Cash out</span>
+        <span class="ref">NR-DJBRBNEJ</span>
+        <span class="when">both legs closed</span>
+      </div>
+      <dl class="proof-grid">
+        <div><dt>Sent</dt><dd>1.45 USDT</dd></div>
+        <div><dt>Payout</dt><dd>1.4428</dd></div>
+        <div><dt>Rate</dt><dd>1,365.32</dd></div>
+        <div><dt>Our fee</dt><dd>0.0072</dd></div>
+        <div><dt>Gas seeded</dt><dd>0.0506 POL</dd></div>
+      </dl>
+      <p class="proof-tx"><b>Transfer</b> 0x92cb004d…&nbsp;&nbsp;·&nbsp;&nbsp;<b>fee top-up</b> 0xc1dc5737e342dfc635b2e5c99491a5cdb3435bb41bc09edcc348ee45154b117d</p>
+    </div>
+  </div>
+  <p>The cash-out is the more interesting record. It is the same wallet the cash-in paid: it held 1.454175 USDT and no POL whatsoever, which is precisely the dead end §3 describes. The seeded fee is what let it move. A second cash-out from the same wallet minutes later took <em>no</em> top-up at all — the faucet found the leftover and refused, which is the guard working in production rather than in a test.</p>
+</section>
+
+<section>
+  <h2><span class="num">§5</span> Engineering priorities, and where they come from <span class="revtag">Carried from Rev A</span></h2>
+  <p class="deck">The scoring rubric is a hundred points across five categories. It is unusually explicit, so we aimed at it directly.</p>
+  <div class="prio">
+    <div class="prow"><span class="lbl">Functionality &amp; usefulness</span><span class="bar"><i style="width:100%"></i></span><span class="val">45</span></div>
+    <div class="prow"><span class="lbl">Nimiq Pay integration</span><span class="bar"><i style="width:55.6%"></i></span><span class="val">25</span></div>
+    <div class="prow"><span class="lbl">Real usage</span><span class="bar"><i style="width:33.3%"></i></span><span class="val">15</span></div>
+    <div class="prow"><span class="lbl">Design &amp; UX</span><span class="bar dim"><i style="width:22.2%"></i></span><span class="val">10</span></div>
+    <div class="prow"><span class="lbl">Builder promotion</span><span class="bar dim"><i style="width:11.1%"></i></span><span class="val">5</span></div>
+  </div>
+  <p><strong>Reliability outranks features.</strong> Forty-five points sit on a category whose sub-criteria are core feature, error handling, speed, stability and completeness. Completeness is one of the five and it is the case for shipping both legs. The other four are the case for §4 going first.</p>
+  <p><strong>Integration depth is worth more than polish.</strong> Twenty-five points reward using the platform properly — native dialogs, real localisation, the device identifier, deeplinks — against ten for visual design. Most entrants will call <code>listAccounts()</code> and stop. Five chains and two tokens is the same argument: it is depth in the platform, and it cost a registry rather than a rewrite.</p>
+  <p><strong>Real usage is measured, not claimed.</strong> Fifteen points require people actually transacting before the deadline, which is the one category a late ship genuinely costs us.</p>
+</section>
+
+<section>
+  <h2><span class="num">§6</span> Schedule <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">Recorded as it happened rather than as it was planned, because a brief that quietly rewrites its own schedule is worth nothing to the next project.</p>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>Dates</th><th>Milestone</th><th>What actually happened</th></tr></thead>
+      <tbody>
+        <tr class="done"><td class="days">6–9 Sep</td><td class="milestone">Lost</td><td>Rev A&rsquo;s foundation week went to the colliding ETHOnline submission.</td></tr>
+        <tr class="done"><td class="days">10 Sep</td><td class="milestone">Both spikes, parallel</td><td>Rails and platform together. The rail was probed live and corrected the brief twice the same day — Ghana out, Uganda in; eleven states, not ten.</td></tr>
+        <tr class="done"><td class="days">11 Sep</td><td class="milestone">State machine, then legs joined</td><td>State machine first, per §4. Chain registry widened to five, every address read on-chain.</td></tr>
+        <tr class="done"><td class="days">12–13 Sep</td><td class="milestone">Both legs, corridors, hardening</td><td>Cap, kill switch, corridor flags. The support matrix was written here and deleted here — see §2.</td></tr>
+        <tr class="done ship"><td class="days">14 Sep</td><td class="milestone">Ship live</td><td>Shipped. Both legs, four corridors, five chains.</td></tr>
+        <tr class="done"><td class="days">15–17 Sep</td><td class="milestone">Users, demo, design</td><td>First real cash-in settled. The design board was implemented screen by screen, buy flow first.</td></tr>
+        <tr class="today"><td class="days">18 Sep</td><td class="milestone">Submission</td><td>Cash-out&rsquo;s gas problem found and fixed this morning; both legs now closed. Pack and fee address remain — §0.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>What the compression actually cost</h3>
+  <p>Rev A budgeted eight build days and shipped on the 13th. We had five and shipped on the 14th at wider scope than Rev A described. The arithmetic worked because Rev A was written single-threaded, and because one state machine served both legs.</p>
+  <p>The bill came due elsewhere. <strong>The on-chain NIM receipt is the one scope item that did not land</strong>, and the gas problem in §3 surfaced on the last morning rather than the first — found by using the product in the order a real user does, which is the test no amount of unit coverage substitutes for. Neither was a planning failure exactly, but both are the shape of thing a week of float would have absorbed.</p>
+</section>
+
+<section>
+  <h2><span class="num">§7</span> Risks <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">Five of Rev C&rsquo;s risks have now either fired or closed. They are kept rather than deleted, with what actually happened, because a risk register that only lists the ones still open is a register nobody learns from.</p>
+  <div class="risk">
+    <span class="sev sev-fired">Fired</span>
+    <div class="risk-body">
+      <h3>The ETHOnline collision</h3>
+      <p>Rated Medium in Rev A and scoped to a single date. It took days one through four instead — the foundation days.</p>
+      <p class="mit past"><span>Outcome</span>Absorbed by parallelising and by one state machine serving both legs. The four days did not come back; the NIM receipt is what they cost.</p>
+    </div>
+  </div>
+  <div class="risk">
+    <span class="sev sev-fired">Fired</span>
+    <div class="risk-body">
+      <h3>There is no sandbox — every test is real money</h3>
+      <p>New in Rev C, and correct. Paycrest is mainnet-only with a $0.50 floor. Every branch of §4 we wanted to prove cost real currency across a real rail.</p>
+      <p class="mit past"><span>Outcome</span>The cap and kill switch landed before the first spike call and both fail closed — an unset cap means $50, not unlimited; an unparseable kill switch means <em>on</em>. Total spend proving both legs was under $5. Two settled orders in §4 are what that bought.</p>
+    </div>
+  </div>
+  <div class="risk">
+    <span class="sev sev-fired">Fired</span>
+    <div class="risk-body">
+      <h3>Cash-out is unaffordable in a freshly funded wallet</h3>
+      <p>New in Rev D, and in no earlier revision because no earlier revision had used the product in the order a user does. A cash-in leaves stablecoin and no native token; the next action costs gas the wallet cannot pay.</p>
+      <p class="mit past"><span>Outcome</span>Server-side fee seeding, shipped this morning — §3. Compounded by a second, unrelated bug underneath it: we sent no fee fields and let the wallet pick, below Polygon&rsquo;s enforced 25 gwei floor. The first diagnosis was wrong because the symptom named the wrong cause.</p>
+    </div>
+  </div>
+  <div class="risk">
+    <span class="sev sev-md">Live</span>
+    <div class="risk-body">
+      <h3>Two corridors have a single provider between them</h3>
+      <p>The live rates endpoint returns two <code>providerIds</code> for NGN and exactly one for KES and TZS — the same one. If that provider goes quiet, two of our four corridors go with it, and no retry on our side helps.</p>
+      <p class="mit"><span>Mitigation</span>NGN launched first on provider redundancy rather than rate. A quiet provider now surfaces as a <em>no-liquidity</em> refusal in the user&rsquo;s own words (§2) rather than as a generic failure, and the stall window is tuned so it does not read as slow settlement.</p>
+    </div>
+  </div>
+  <div class="risk">
+    <span class="sev sev-md">Live</span>
+    <div class="risk-body">
+      <h3>The rail&rsquo;s account verifier is unreliable</h3>
+      <p>New in Rev D. <code>/v2/verify-account</code> — which checks a bank account resolves to a real name before anyone commits — returns a Cloudflare 504 consistently. It is theirs, not ours, and it is the one dependency we cannot route around.</p>
+      <p class="mit"><span>Mitigation</span>Degraded rather than blocking. &ldquo;We cannot check right now&rdquo; is treated as distinct from &ldquo;that account is wrong&rdquo;: an outage offers <em>use it anyway</em>, a real rejection blocks. Conflating them either waves a mistyped account number through or halts every transfer until the verifier returns. The rail re-checks at order time regardless.</p>
+    </div>
+  </div>
+  <div class="risk">
+    <span class="sev sev-md">Live</span>
+    <div class="risk-body">
+      <h3>The fee address is configured outside our code</h3>
+      <p>New in Rev D, and the only open item touching money. Our 0.5% is paid to a <code>senderFeeAddress</code> set in the rail&rsquo;s dashboard. It is not in the repository, not in <code>.env</code>, and not under review — so nothing in our process would catch it being wrong.</p>
+      <p class="mit"><span>Mitigation</span>Confirm the address is one the team lead controls before further volume. Both settled orders in §4 already paid into it.</p>
+    </div>
+  </div>
+  <div class="risk">
+    <span class="sev sev-lo">Live</span>
+    <div class="risk-body">
+      <h3>The gas faucet is a faucet</h3>
+      <p>New in Rev D. A hot key on the API server that sends money to addresses on request is, stated plainly, an attack surface we did not have last week.</p>
+      <p class="mit"><span>Mitigation</span>Bounded on every axis: one payout per order, only to the address that owns that order, only the shortfall, never above a per-chain ceiling, never past a daily budget, and refusing rather than underfunding when gas spikes. The wallet holds about $5. Worst case is the loss of $5 and a corridor that asks users to hold gas again.</p>
+    </div>
+  </div>
+  <div class="risk">
+    <span class="sev sev-fired">Closed</span>
+    <div class="risk-body">
+      <h3>Shared rails code with the ETHOnline project</h3>
+      <p>Elevated in Rev B on the reasoning that lifting a working integration would look extremely reasonable at 2am on the 13th.</p>
+      <p class="mit past"><span>Outcome</span>Held. Its own repository, its own rails client, written fresh, with 197 tests of its own.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">§8</span> Definition of done <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">Competition requirements, which are also a reasonable release bar. Two remain.</p>
+  <ul class="checks">
+    <li class="ticked"><span class="box"></span><span><b>Public GitHub repository, MIT licensed.</b> No hardcoded credentials — <code>.gitignore</code> and <code>.env.example</code> landed in the first commit, and the live keys have never been in the tree.</span></li>
+    <li class="ticked"><span class="box"></span><span><b>A finished product, not a prototype.</b> Their wording. Every flow terminates in a real state, and both directions have settled real money.</span></li>
+    <li class="ticked"><span class="box"></span><span><b>Meaningful Nimiq Pay integration</b> supporting USDT, NIM, or both. Five chains, two tokens, native dialogs, host localisation, deeplinks.</span></li>
+    <li class="ticked"><span class="box"></span><span><b>Original code</b> with attribution for open-source dependencies.</span></li>
+    <li class="ticked"><span class="box"></span><span><b>Builder Promotion Checklist completed.</b></span></li>
+    <li><span class="box"></span><span><b>Team lead nominated</b> with a Nimiq wallet address for payout — and their legal name in <code>LICENSE</code>, which is still a placeholder.</span></li>
+    <li><span class="box"></span><span><b>Demo video</b> and a description of 250 words or fewer.</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">§9</span> Open questions and owners <span class="revtag new">Revised in Rev D</span></h2>
+  <p class="deck">Everything external is closed. What is left is ours, and all of it is answerable today.</p>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>Question</th><th>Owner</th><th>Where the answer comes from</th><th>By</th></tr></thead>
+      <tbody>
+        <tr class="today"><td class="milestone" style="white-space:normal">Is the <code>senderFeeAddress</code> taking our 0.5% an address the team lead controls?</td><td>Team lead</td><td>The rail&rsquo;s dashboard. It is configured there rather than in our code, so nothing in review would have caught it. See §7.</td><td class="days">Today</td></tr>
+        <tr class="today"><td class="milestone" style="white-space:normal">The team lead&rsquo;s legal name for <code>LICENSE</code>, and the Nimiq wallet address for payout.</td><td>Team lead</td><td>A placeholder currently fails the MIT requirement in §8 on a technicality that costs nothing to fix.</td><td class="days">Today</td></tr>
+        <tr class="done"><td class="milestone" style="white-space:normal">Is a fiat on/off-ramp in scope for Mini Apps at all?</td><td>Team lead</td><td>Asked on the 9 Sep community call. <strong>Cleared</strong> — no objection, no conflicting arrangement.</td><td class="days"><span class="closetag">Closed 9 Sep</span></td></tr>
+        <tr class="done"><td class="milestone" style="white-space:normal">Which corridor settles fastest and most reliably? That one launches first.</td><td>Rails owner</td><td><strong>NGN</strong>, on provider redundancy rather than rate.</td><td class="days"><span class="closetag">Closed 10 Sep</span></td></tr>
+        <tr class="done"><td class="milestone" style="white-space:normal">Is there a second rail that serves Ghana?</td><td>Rails owner</td><td>No, and not worth wiring for one corridor. The submission copy says four markets, and names them.</td><td class="days"><span class="closetag">Closed 10 Sep</span></td></tr>
+        <tr class="done"><td class="milestone" style="white-space:normal">Should we support only USDT, or USDC too? One chain or all of them?</td><td>Nimiq EM</td><td><strong>Both tokens, every chain the wallet carries.</strong> The injected provider is standard EIP-1193, so the marginal chain is a registry entry. See §3.</td><td class="days"><span class="closetag">Closed 11 Sep</span></td></tr>
+        <tr class="done"><td class="milestone" style="white-space:normal">Transaction cap for the competition period, and who holds the kill switch.</td><td>Nimiq EM with rails owner</td><td>$50 per transfer, both fail closed. Landed before the first live call rather than before going live.</td><td class="days"><span class="closetag">Closed 10 Sep</span></td></tr>
+        <tr class="done"><td class="milestone" style="white-space:normal">Can transactions be sponsored so users never need gas?</td><td>Nimiq EM</td><td><strong>Not in time.</strong> Every route needs a typed-data signature we have not confirmed the wallet will produce. Seeded fees instead; EIP-3009 is the next build. See §3.</td><td class="days"><span class="closetag">Closed 18 Sep</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <span>Four Corridors</span>
+  <span>Engineering Brief · Rev D</span>
+  <span>18 September 2026</span>
+  <span>Supersedes Rev C, 10 September</span>
+  <span>Cycle II closes today</span>
+</footer>
+
+</div>
