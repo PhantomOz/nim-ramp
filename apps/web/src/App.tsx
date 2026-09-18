@@ -55,7 +55,7 @@ export function App() {
   const [direction, setDirection] = useState<Direction>("cash_out");
   const [corridor, setCorridor] = useState<Corridor>("NGN");
   const [chain, setChain] = useState<Chain>(CHAINS[0] as Chain);
-  const [symbol] = useState<TokenSymbol>("USDT");
+  const [symbol, setSymbol] = useState<TokenSymbol>("USDT");
   const [amount, setAmount] = useState("");
 
   const [session, setSession] = useState<Session | null>(null);
@@ -491,7 +491,11 @@ export function App() {
   return (
     <div className="phone">
       <div className="topbar">
-        <span className="topbar__name">nimRamp</span>
+        {/* The wordmark rather than the word: this bar is the only place the
+            app names itself, and a mini app sitting inside someone else's
+            chrome has to be recognisable at a glance. Alt text carries the
+            name for anyone the image does not reach. */}
+        <img className="topbar__mark" src="/brand/wordmark.svg" alt="nimRamp" />
         <span className="topbar__sub">
           Mini app · Nimiq Pay{step === "home" ? ` · ${COUNTRY[corridor].name}` : ""}
         </span>
@@ -514,7 +518,9 @@ export function App() {
       {sheet === "chain" ? (
         <ChainSheet
           current={chain}
+          symbol={symbol}
           onPick={setChain}
+          onPickToken={setSymbol}
           onClose={() => setSheet(null)}
         />
       ) : null}

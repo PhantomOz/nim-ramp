@@ -105,15 +105,36 @@ test("stops when the day's budget for that chain is spent", () => {
   expect(d.ok === false && d.status).toBe(429);
 });
 
-test("prices the ceiling per chain, because 0.05 ETH is not 0.05 POL", () => {
-  // The same wei ceiling everywhere would either brick Polygon or hand out
-  // hundreds of dollars on Ethereum.
-  const onEthereum = decideDrip(
+test("prices the ceiling per chain, because 0.018 POL is not 0.018 ETH", () => {
+  // One wei ceiling for every chain would either brick Polygon or hand out
+  // real money on the chains whose native token is ETH. At 100 gwei the same
+  // transfer is pocket change in POL and a refusal in ETH.
+  const price = { gasPrice: 100_000_000_000n };
+  expect(decideDrip(inputs({ record: order({ chain: "polygon" }), ...price })).ok).toBe(true);
+
+  const onBase = decideDrip(inputs({ record: order({ chain: "base" }), ...price }));
+  expect(onBase.ok).toBe(false);
+  expect(onBase.ok === false && onBase.status).toBe(503);
+});
+
+test("refuses to fund Ethereum — mainnet gas is the user's own", () => {
+  // A Polygon top-up is twenty cents; the same transfer on mainnet is dollars,
+  // and a faucet that pays those is a faucet someone empties. Ethereum users
+  // hold ETH already — that is what being on Ethereum costs.
+  const d = decideDrip(
     inputs({
       record: order({ chain: "ethereum" }),
-      gasPrice: 100_000_000_000n,
+      // Real mainnet-ish price, and a wallet with nothing.
+      gasPrice: 30_000_000_000n,
     }),
   );
-  expect(onEthereum.ok).toBe(false);
-  expect(onEthereum.ok === false && onEthereum.status).toBe(503);
+  expect(d.ok).toBe(false);
+  expect(d.ok === false && d.status).toBe(409);
+  expect(d.ok === false && d.reason).toMatch(/Ethereum/);
+});
+
+test("still funds the cheap chains", () => {
+  for (const chain of ["polygon", "base", "arbitrum-one", "bnb-smart-chain"] as const) {
+    expect(decideDrip(inputs({ record: order({ chain }), gasPrice: 1_000_000_000n })).ok).toBe(true);
+  }
 });

@@ -154,7 +154,10 @@ export function Home({
             <ChainMark slug={chain.slug} size={19} />
             <span className="picker__text">
               <span className="picker__k">Network</span>
-              <span className="picker__v">{chain.name}</span>
+              {/* The token belongs here, not in a separate control: the pair
+                  is what a balance actually is, and both are changed in the
+                  same sheet this button opens. */}
+              <span className="picker__v">{chain.name} · {symbol}</span>
             </span>
             <span className="picker__caret" aria-hidden="true">▼</span>
           </button>

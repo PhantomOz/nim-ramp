@@ -72,6 +72,9 @@ input:focus { outline: none; }
   border-bottom: 1px solid rgba(42, 27, 46, 0.08);
 }
 .topbar__name { font: 600 14px/1 var(--ui); }
+/* Height-locked, width free: the wordmark is a wide asset and letting it size
+   itself pushes the sub-label off the bar. */
+.topbar__mark { height: 15px; width: auto; display: block; flex: none; }
 .topbar__sub { font: 400 11px/1 var(--ui); color: var(--muted); }
 
 /* Header row with the round back chevron. */
@@ -489,6 +492,31 @@ input:focus { outline: none; }
   flex: none;
 }
 
+/* ---- segmented control (token picker) ---------------------------------- */
+
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(42, 27, 46, .06);
+  border-radius: 14px;
+}
+.seg__btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 9px 0;
+  font: 600 14px var(--ui);
+  color: var(--muted);
+  cursor: pointer;
+}
+.seg__btn--on {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(42, 27, 46, .12);
+}
+
 /* ---- badges ------------------------------------------------------------ */
 
 .badge {
@@ -550,5 +578,70 @@ input:focus { outline: none; }
 }
 .field:focus { border-color: var(--plum); }
 .field:disabled { opacity: .6; }
+
+/* ---- searchable institution picker ------------------------------------- */
+
+.picker2 { position: relative; }
+.picker2__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.picker2__trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker2__ph { color: var(--muted); font-weight: 500; }
+.picker2__caret { font-size: 10px; color: var(--muted); flex: none; }
+
+/* Over the field rather than pushing it: the account number below must not
+   jump down the screen while someone is choosing. */
+.picker2__panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(42, 27, 46, .16);
+  overflow: hidden;
+}
+.picker2__search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 13px 14px;
+  font: 500 15px var(--ui);
+  color: var(--ink);
+  background: transparent;
+}
+.picker2__search:focus { outline: none; border-bottom-color: var(--plum); }
+.picker2__list { max-height: 244px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.picker2__opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 12px 14px;
+  font: 500 15px var(--ui);
+  color: var(--ink);
+  cursor: pointer;
+}
+.picker2__opt:hover { background: rgba(42, 27, 46, .05); }
+.picker2__opt--on { color: var(--plum); font-weight: 600; }
+.picker2__empty {
+  margin: 0;
+  padding: 16px 14px;
+  font: 400 14px/1.4 var(--ui);
+  color: var(--muted);
+}
 
 .details--tight .details__row { padding: 11px 0; }

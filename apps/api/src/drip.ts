@@ -1,4 +1,4 @@
-import { type ChainSlug, TRANSFER_GAS } from "@ramp/core";
+import { chainBySlug, type ChainSlug, TRANSFER_GAS } from "@ramp/core";
 
 import type { OrderRecord } from "./store.js";
 
@@ -32,17 +32,26 @@ const gwei = (n: bigint) => n * 1_000_000_000n;
  * These are ceilings, not amounts. A normal drip is far below them; the
  * ceiling exists so that a gas spike, or a bug in the estimate, cannot turn
  * one request into the whole wallet.
+ *
+ * A chain absent from this map is one we do not fund at all. Ethereum is the
+ * only one: a mainnet transfer costs dollars rather than cents, and a faucet
+ * paying those is a faucet someone empties on purpose. Anyone holding
+ * stablecoin on mainnet is already paying mainnet prices for everything else
+ * they do there, so this asks nothing new of them — and the four chains we
+ * do fund are the ones where a cash-in can strand someone with no native
+ * token at all.
  */
-const LIMITS: Record<ChainSlug, { perDrip: bigint; perDay: bigint }> = {
+const LIMITS: Partial<Record<ChainSlug, { perDrip: bigint; perDay: bigint }>> = {
   // ~$0.20 and ~$2.
   polygon: { perDrip: gwei(500_000_000n), perDay: 5n * 10n ** 18n },
   // L2s: gas is fractions of a gwei, so these are enormous headroom already.
   base: { perDrip: 400_000_000_000_000n, perDay: 4_000_000_000_000_000n },
   "arbitrum-one": { perDrip: 400_000_000_000_000n, perDay: 4_000_000_000_000_000n },
-  // Mainnet is the expensive one. ~$14 a drip, and we stop after five.
-  ethereum: { perDrip: 4_000_000_000_000_000n, perDay: 20_000_000_000_000_000n },
   "bnb-smart-chain": { perDrip: 5_000_000_000_000_000n, perDay: 50_000_000_000_000_000n },
 };
+
+/** What to call a chain when refusing, so the message names the thing. */
+const nameOf = (slug: ChainSlug): string => chainBySlug(slug)?.name ?? slug;
 
 export type DripInputs = {
   /** The order the request claims to be for. */
@@ -100,6 +109,19 @@ export function decideDrip(input: DripInputs): DripDecision {
     return refuse(403, "that address does not own this order");
   }
 
+  const limit = LIMITS[record.chain];
+
+  // Checked before anything is measured: on a chain we do not fund, no
+  // balance and no gas price changes the answer.
+  if (limit === undefined) {
+    return refuse(
+      409,
+      `${nameOf(record.chain)} network fees are yours to pay — hold a little ${
+        record.chain === "ethereum" ? "ETH" : "native token"
+      } before cashing out here`,
+    );
+  }
+
   if (input.alreadyDripped) {
     return refuse(409, "this order has already been topped up");
   }
@@ -111,7 +133,6 @@ export function decideDrip(input: DripInputs): DripDecision {
 
   // Only the shortfall. A partially funded wallet does not need the lot.
   const amountWei = needed - input.balance;
-  const limit = LIMITS[record.chain];
 
   // Refuse rather than clamp. Sending the ceiling when the ceiling is not
   // enough spends our money on a transfer that still fails, and leaves the

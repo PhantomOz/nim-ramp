@@ -1,4 +1,5 @@
 import type { ChainSlug, Corridor } from "@ramp/core";
+import { useState } from "react";
 
 /**
  * Flags and chain marks.
@@ -8,10 +9,12 @@ import type { ChainSlug, Corridor } from "@ramp/core";
  * These are an addition to it, so they keep the board's badge geometry and
  * only change what sits inside.
  *
- * Chain marks are simplified geometry in each brand's colour, drawn inline
- * rather than fetched: the CSP blocks external images, and a logo that fails
- * to load leaves a hole where the network name should be. They are
- * recognisable rather than official — swap in the real assets if we get them.
+ * Chain marks are each network's own logo, served from our own origin rather
+ * than a CDN — the CSP blocks external images, and a network's mark going
+ * missing leaves a hole where the name should be. The simplified geometry
+ * below is still here as the fallback for exactly that: an asset that fails
+ * to load falls back to a drawn mark in the brand colour rather than to
+ * nothing.
  */
 
 export const FLAG: Record<Corridor, string> = {
@@ -45,7 +48,34 @@ const BRAND: Record<ChainSlug, string> = {
   "bnb-smart-chain": "#F0B90B",
 };
 
+/**
+ * The real logo, with the drawn mark underneath it.
+ *
+ * `onError` is the whole point: a 404 on one network's asset must not leave a
+ * blank disc next to its name, because that reads as a broken network rather
+ * than a missing file.
+ */
 export function ChainMark({ slug, size = 22 }: { slug: ChainSlug; size?: number }) {
+  const [missing, setMissing] = useState(false);
+
+  if (!missing) {
+    return (
+      <img
+        src={`/chains/${slug}.svg`}
+        width={size}
+        height={size}
+        alt=""
+        aria-hidden="true"
+        style={{ display: "block", borderRadius: "50%" }}
+        onError={() => setMissing(true)}
+      />
+    );
+  }
+
+  return <DrawnMark slug={slug} size={size} />;
+}
+
+function DrawnMark({ slug, size }: { slug: ChainSlug; size: number }) {
   const fill = BRAND[slug];
   const common = { width: size, height: size, viewBox: "0 0 24 24", "aria-hidden": true };
 
