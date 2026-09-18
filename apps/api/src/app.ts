@@ -494,5 +494,15 @@ export function createApp(deps: AppDeps) {
 
   app.get("/api/health", (c) => c.json({ ok: true }));
 
+  /*
+   * Unknown routes answer in JSON, like every other route here.
+   *
+   * The app reads every API response as JSON, so the framework's plain-text
+   * default turns a mistyped URL into a parse error — which points whoever is
+   * debugging at the payload rather than at the address. Registered last, so
+   * anything served after this (the built web app) still gets its turn first.
+   */
+  app.notFound((c) => c.json({ error: `no route for ${c.req.path}` }, 404));
+
   return app;
 }

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { serve } from "@hono/node-server";
@@ -8,6 +10,7 @@ import { loadConfig } from "./config.js";
 import { openDripLog } from "./driplog.js";
 import { createFunder, funderAddress } from "./funder.js";
 import { openStore } from "./store.js";
+import { serveWeb } from "./web.js";
 
 // Fails here, at boot, rather than in front of a user mid-order.
 const config = loadConfig(process.env);
@@ -29,15 +32,21 @@ const client = createClient({
  * root when run from there. Two different audit trails, and a reference that
  * resolves or does not depending on how someone launched the process.
  */
-const ordersPath =
-  process.env["ORDERS_PATH"] ??
-  fileURLToPath(new URL("../../../.nimramp/orders.jsonl", import.meta.url));
+/*
+ * On a host, this points at a mounted volume. Locally it is the repo's own
+ * `.nimramp/`. Either way the log has to outlive the process: a reference a
+ * user is holding must still resolve tomorrow, which is the whole reason this
+ * runs on a persistent host rather than on ephemeral functions.
+ */
+const dataDir =
+  process.env["DATA_DIR"] ??
+  fileURLToPath(new URL("../../../.nimramp/", import.meta.url));
+
+const ordersPath = process.env["ORDERS_PATH"] ?? join(dataDir, "orders.jsonl");
 
 const store = openStore(ordersPath);
 
-const dripsPath =
-  process.env["DRIPS_PATH"] ??
-  fileURLToPath(new URL("../../../.nimramp/drips.jsonl", import.meta.url));
+const dripsPath = process.env["DRIPS_PATH"] ?? join(dataDir, "drips.jsonl");
 
 const dripLog = openDripLog(dripsPath);
 
@@ -67,13 +76,25 @@ const app = createApp({
   },
 });
 
+/*
+ * The built mini app, served by the same process.
+ *
+ * Same origin for both halves, so the app's relative `/api/...` calls need no
+ * CORS and there is no second URL to keep in step. Absent before the web app
+ * has been built, and the API then runs on its own.
+ */
+const webRoot =
+  process.env["WEB_ROOT"] ?? fileURLToPath(new URL("../../web/dist/", import.meta.url));
+serveWeb(app, webRoot);
+
 console.log(
   [
-    `NimRamp API on :${config.port}`,
+    `NimRamp on :${config.port}`,
     `  corridors : ${config.enabledCorridors.join(", ") || "none enabled"}`,
     `  cap       : ${config.maxTxUsdt} USDT per transfer`,
     `  kill      : ${config.killSwitch ? "ON — refusing every order" : "off"}`,
-    `  orders    : ${ordersPath}`,
+    `  data      : ${dataDir}`,
+    `  web       : ${existsSync(join(webRoot, "index.html")) ? webRoot : "not built — API only"}`,
     `  gas       : ${
       config.gasFunderKey === undefined
         ? "no funder key — cash-out needs the user to hold gas"

@@ -113,3 +113,15 @@ test("a failed send does not burn the one attempt", async () => {
   expect(res.status).toBe(502);
   expect(drips).toHaveLength(0);
 });
+
+test("an unknown API route answers in JSON, like every other API route", async () => {
+  // The app reads every API response as JSON. A plain-text 404 from the
+  // framework's default makes a mistyped route surface as a parse error,
+  // which points at the payload rather than at the wrong URL.
+  const { app } = deps();
+  const res = await app.request("/api/does-not-exist");
+
+  expect(res.status).toBe(404);
+  expect(res.headers.get("content-type")).toMatch(/application\/json/);
+  expect(await res.json()).toMatchObject({ error: expect.any(String) });
+});
