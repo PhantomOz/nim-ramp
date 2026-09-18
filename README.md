@@ -79,12 +79,15 @@ including the ugly ones. Terminal failures carry a reference she can quote to
 a human.
 
 **Where last month's transfer went.** *Your transfers* on the home screen
-lists everything she has done from this phone with this wallet, newest first,
-and opening one reads the figures back from the rail rather than from memory —
-so a receipt she pulls up in March cannot disagree with the ledger. The index
-is local on purpose: an endpoint that listed a wallet's orders would need no
-key to call, and an Ethereum address is public, so anyone could paste hers and
-read her bank, her name and every amount she has moved.
+lists what **this wallet** has done from this phone, newest first, and opening
+one reads the figures back from the rail rather than from memory — so a
+receipt she pulls up in March cannot disagree with the ledger. History belongs
+to a wallet, never to a browser: disconnect, or connect a different account,
+and the list is empty. There is no device-wide view, because a phone gets
+handed around. The index is local for the matching reason — an endpoint that
+listed a wallet's orders would need no key to call, and an Ethereum address is
+public, so anyone could paste hers and read her bank, her name and every
+amount she has moved.
 
 ## Proof it works
 
@@ -116,7 +119,7 @@ web port through a tunnel and open that URL via
 serves both halves.
 
 ```bash
-pnpm test           # 222 tests
+pnpm test           # 224 tests
 pnpm run typecheck
 pnpm run build      # builds the mini app
 pnpm start          # one process serving the API and the built app

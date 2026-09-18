@@ -67,10 +67,18 @@ test("matches the wallet regardless of checksum case", () => {
   expect(list(WALLET.toUpperCase())).toHaveLength(1);
 });
 
-test("shows everything on this device when no wallet is connected", () => {
+test("shows nothing at all when no wallet is connected", () => {
+  // History belongs to a wallet, not to a browser. Without one connected
+  // there is nobody to show it to — and a device-wide list would hand the
+  // last person's transfers to whoever picks the phone up next.
   remember(entry({ ref: "NR-ONE" }));
   remember(entry({ ref: "NR-TWO", address: "0x000000000000000000000000000000000000dEaD" }));
-  expect(list(null)).toHaveLength(2);
+  expect(list(null)).toEqual([]);
+});
+
+test("a wallet with no transfers of its own sees an empty list, not someone else's", () => {
+  remember(entry({ ref: "NR-THEIRS", address: "0x000000000000000000000000000000000000dEaD" }));
+  expect(list(WALLET)).toEqual([]);
 });
 
 test("reads nothing rather than throwing when the store holds rubbish", () => {

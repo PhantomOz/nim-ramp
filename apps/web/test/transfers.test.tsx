@@ -29,11 +29,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const show = async (entries: HistoryEntry[], onOpen = () => undefined) => {
+const show = async (
+  entries: HistoryEntry[],
+  opts: { onOpen?: () => void; connected?: boolean } = {},
+) => {
   await act(async () => {
-    render(<Transfers entries={entries} onOpen={onOpen} onBack={() => undefined} />);
+    render(
+      <Transfers
+        entries={entries}
+        connected={opts.connected ?? true}
+        onOpen={opts.onOpen ?? (() => undefined)}
+        onBack={() => undefined}
+      />,
+    );
   });
 };
+
+test("shows no transfers at all without a connected wallet", async () => {
+  // Handed the rows anyway — the screen must still refuse to render them,
+  // because the gate is the point and a caller can get this wrong.
+  await show([entry()], { connected: false });
+  expect(screen.queryByText(/NR-DJBRBNEJ/)).toBeNull();
+  expect(screen.getByRole("heading", { name: /connect your wallet/i })).toBeDefined();
+});
 
 test("an empty list says what the list is, not just that it is empty", async () => {
   await show([]);
@@ -49,7 +67,7 @@ test("a row carries the reference, because that is what support asks for", async
 
 test("opening a row hands back its reference", async () => {
   const onOpen = vi.fn();
-  await show([entry()], onOpen);
+  await show([entry()], { onOpen });
   screen.getByRole("button", { name: /NR-DJBRBNEJ/ }).click();
   expect(onOpen).toHaveBeenCalledWith("NR-DJBRBNEJ");
 });

@@ -115,15 +115,17 @@ export function remember(entry: HistoryEntry, store: StorageLike = device()): vo
 /**
  * This wallet's orders, newest first.
  *
- * Filtered by address because a phone gets handed around, and because Nimiq
- * Pay can switch accounts under us — a list that mixed two wallets would
- * show someone transfers they cannot open and did not make. `null` means no
- * wallet is connected, and then everything on the device is theirs by
- * definition.
+ * Filtered by address, and empty without one. History belongs to a wallet
+ * rather than to a browser: a phone gets handed around, Nimiq Pay can switch
+ * accounts under us, and a list that fell back to "everything on this device"
+ * would hand the last person's transfers — their bank, their name, their
+ * amounts — to whoever picks the phone up next. Not knowing whose list it is
+ * means showing no list.
  */
 export function list(address: string | null, store: StorageLike = device()): HistoryEntry[] {
-  const all = read(store).sort(newestFirst);
-  if (address === null) return all;
+  if (address === null || address === "") return [];
   const want = address.toLowerCase();
-  return all.filter((e) => e.address.toLowerCase() === want);
+  return read(store)
+    .filter((e) => e.address.toLowerCase() === want)
+    .sort(newestFirst);
 }

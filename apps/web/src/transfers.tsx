@@ -47,10 +47,13 @@ const when = (iso: string) => {
 
 export function Transfers({
   entries,
+  connected,
   onOpen,
   onBack,
 }: {
   entries: HistoryEntry[];
+  /** Whether a wallet is connected. Without one there is no list to show. */
+  connected: boolean;
   onOpen: (ref: string) => void;
   onBack: () => void;
 }) {
@@ -92,13 +95,23 @@ export function Transfers({
       </div>
 
       <div className="scroll" style={{ paddingTop: 8 }}>
-        {entries.length === 0 ? (
+        {!connected ? (
+          <>
+            <h1 className="h1" style={{ fontSize: 26 }}>Connect your wallet</h1>
+            <p className="body body--muted" style={{ marginTop: 8 }}>
+              Transfers belong to a wallet, not to a phone. Connect the one you
+              used and its transfers appear here — nothing is shown until then,
+              because whoever picks this phone up next should not be reading
+              somebody else&rsquo;s bank details.
+            </p>
+          </>
+        ) : entries.length === 0 ? (
           <>
             <h1 className="h1" style={{ fontSize: 26 }}>Nothing here yet</h1>
             <p className="body body--muted" style={{ marginTop: 8 }}>
-              Transfers you make on this phone show up here. The list lives on
-              your device, so clearing your browser data clears it — the
-              reference on each receipt is the part worth keeping.
+              Transfers this wallet makes on this phone show up here. The list
+              lives on your device, so clearing your browser data clears it —
+              the reference on each receipt is the part worth keeping.
             </p>
           </>
         ) : (

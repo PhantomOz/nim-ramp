@@ -541,6 +541,7 @@ export function App() {
         return (
           <Transfers
             entries={history}
+            connected={session !== null}
             onOpen={(ref) => void openPast(ref)}
             onBack={() => setStep("home")}
           />
