@@ -124,7 +124,7 @@ export function CashinPay({
         <p className="small" style={{ marginTop: 14, textWrap: "pretty" }}>
           Send from an account in your own name. Transfers from other
           people&rsquo;s accounts are returned to where they came from. The
-          account belongs to {PARTNER}; NimRamp never holds your money.
+          account belongs to {PARTNER}; nimRamp never holds your money.
         </p>
       </div>
 

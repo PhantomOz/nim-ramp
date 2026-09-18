@@ -8,7 +8,7 @@ import {
   type SignAttempt,
 } from "./signing.js";
 
-const MESSAGE = "Four Corridors — proving this wallet is yours";
+const MESSAGE = "nimRamp — proving this wallet is yours";
 
 type Win = {
   ethereum?: {

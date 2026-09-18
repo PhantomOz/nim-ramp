@@ -81,7 +81,7 @@ test("an empty response says the API is unreachable, not 'Unexpected end of JSON
   } as unknown as Response);
 
   await expect(readOrder("NR-ABCD", fetchMock)).rejects.toThrow(
-    /could not reach the NimRamp API/i,
+    /could not reach the nimRamp API/i,
   );
 });
 
@@ -101,7 +101,7 @@ test("an HTML error page is reported as such rather than parsed", async () => {
 test("a network failure is not mistaken for a rejected order", async () => {
   const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
   await expect(readOrder("NR-ABCD", fetchMock)).rejects.toThrow(
-    /could not reach the NimRamp API/i,
+    /could not reach the nimRamp API/i,
   );
 });
 

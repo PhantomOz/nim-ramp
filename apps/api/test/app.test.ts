@@ -27,7 +27,7 @@ function deps(over: Partial<{ client: Partial<PaycrestClient> }> = {}) {
       providerAccount: {
         institution: "Guaranty Trust Bank",
         accountIdentifier: "0123456789",
-        accountName: "Provider A / NimRamp",
+        accountName: "Provider A / nimRamp",
         amountToTransfer: "13595",
         currency: "NGN",
         validUntil: "2026-09-11T10:30:00Z",

@@ -89,7 +89,7 @@ serveWeb(app, webRoot);
 
 console.log(
   [
-    `NimRamp on :${config.port}`,
+    `nimRamp on :${config.port}`,
     `  corridors : ${config.enabledCorridors.join(", ") || "none enabled"}`,
     `  cap       : ${config.maxTxUsdt} USDT per transfer`,
     `  kill      : ${config.killSwitch ? "ON — refusing every order" : "off"}`,

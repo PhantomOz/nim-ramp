@@ -50,7 +50,7 @@ type ProviderAccount = {
 };
 
 const UNREACHABLE =
-  "Could not reach the NimRamp API. Is it running? `pnpm run dev:api`";
+  "Could not reach the nimRamp API. Is it running? `pnpm run dev:api`";
 
 /**
  * Read a response without assuming it is JSON.

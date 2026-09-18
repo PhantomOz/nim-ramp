@@ -118,7 +118,7 @@ export function Receipt({ data, onDone }: { data: ReceiptData; onDone: () => voi
         <div className="section">
           <div className="label">How this worked</div>
           <p className="small" style={{ marginTop: 8 }}>
-            NimRamp never held your money. {PARTNER} is licensed for payments in{" "}
+            nimRamp never held your money. {PARTNER} is licensed for payments in{" "}
             {country.name}, and {cashOut ? "your wallet paid them directly" : "they sent the stablecoin straight to your wallet"}.
           </p>
           {data.txHash !== null ? (

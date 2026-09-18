@@ -491,7 +491,7 @@ export function App() {
   return (
     <div className="phone">
       <div className="topbar">
-        <span className="topbar__name">NimRamp</span>
+        <span className="topbar__name">nimRamp</span>
         <span className="topbar__sub">
           Mini app · Nimiq Pay{step === "home" ? ` · ${COUNTRY[corridor].name}` : ""}
         </span>

@@ -15,7 +15,7 @@ function built() {
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, body, "utf8");
   };
-  write("index.html", "<title>NimRamp</title>");
+  write("index.html", "<title>nimRamp</title>");
   write("assets/index-abc.js", "console.log(1)");
   write("assets/index-abc.css", ".btn{}");
   return root;
@@ -34,7 +34,7 @@ test("serves the built index at the root", async () => {
   const res = await app(built()).request("/");
   expect(res.status).toBe(200);
   expect(res.headers.get("content-type")).toMatch(/text\/html/);
-  expect(await res.text()).toContain("NimRamp");
+  expect(await res.text()).toContain("nimRamp");
 });
 
 test("serves hashed assets with the right content type", async () => {
@@ -52,7 +52,7 @@ test("falls back to the index for an app route with no file behind it", async ()
   // The app routes client-side, so a refresh on /receipt must not 404.
   const res = await app(built()).request("/receipt/NR-ABCD1234");
   expect(res.status).toBe(200);
-  expect(await res.text()).toContain("NimRamp");
+  expect(await res.text()).toContain("nimRamp");
 });
 
 test("never answers an unknown API route with the web app", async () => {

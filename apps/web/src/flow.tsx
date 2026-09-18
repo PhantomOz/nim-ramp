@@ -345,7 +345,7 @@ export function Amount({
               </span>
             </div>
             <div className="row">
-              <span className="row__k">NimRamp fee ({SENDER_FEE_PERCENT}%)</span>
+              <span className="row__k">nimRamp fee ({SENDER_FEE_PERCENT}%)</span>
               <span className="row__v">{split.fee} {symbol}</span>
             </div>
             <div className="row">
@@ -357,8 +357,8 @@ export function Amount({
 
         <p className="small" style={{ marginTop: 14 }}>
           {cashOut
-            ? `Your wallet sends the money directly to ${PARTNER}, our licensed partner. They pay your ${country.method}. NimRamp never holds it.`
-            : `You pay ${PARTNER}, our licensed partner, by bank transfer. They send the ${symbol} straight to your Nimiq Pay wallet on ${chain.name}. NimRamp never holds it.`}
+            ? `Your wallet sends the money directly to ${PARTNER}, our licensed partner. They pay your ${country.method}. nimRamp never holds it.`
+            : `You pay ${PARTNER}, our licensed partner, by bank transfer. They send the ${symbol} straight to your Nimiq Pay wallet on ${chain.name}. nimRamp never holds it.`}
         </p>
 
         <div className="pad">
@@ -506,7 +506,7 @@ export function Review({
 
         <p className="small" style={{ marginTop: 14 }}>
           Your wallet sends it directly to {PARTNER}, our licensed partner. They
-          pay your {country.method}. NimRamp never holds it.
+          pay your {country.method}. nimRamp never holds it.
         </p>
       </div>
 
