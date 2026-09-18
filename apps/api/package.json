@@ -18,6 +18,7 @@
     "@ramp/machine": "workspace:*",
     "@ramp/rails": "workspace:*",
     "hono": "^4.6.0",
+    "tsx": "^4.23.13",
     "viem": "^2.56.3"
   }
 }
