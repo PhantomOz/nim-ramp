@@ -74,11 +74,20 @@ export function createFunder(options: FunderOptions): Funder {
   return {
     async read(chain, address) {
       const client = publicFor(chain);
-      const [balance, gasPrice] = await Promise.all([
+      /*
+       * `maxFeePerGas`, not `eth_gasPrice`.
+       *
+       * A wallet building an EIP-1559 transaction sets maxFeePerGas well
+       * above the current price so the transaction survives a base-fee rise,
+       * and it checks the balance against *that*. Measured on Polygon: price
+       * 263 gwei, maxFeePerGas 311 gwei. Sizing the top-up on the lower
+       * number funds a transfer the wallet will still refuse.
+       */
+      const [balance, fees] = await Promise.all([
         client.getBalance({ address: address as `0x${string}` }),
-        client.getGasPrice(),
+        client.estimateFeesPerGas(),
       ]);
-      return { balance, gasPrice };
+      return { balance, gasPrice: fees.maxFeePerGas };
     },
 
     send(chain, to, amountWei) {

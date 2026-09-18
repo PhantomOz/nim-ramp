@@ -7,7 +7,6 @@ import {
 } from "@ramp/core";
 import type { State } from "@ramp/machine";
 import {
-  checkGas,
   connect,
   liveAccount,
   getProvider,
@@ -311,31 +310,43 @@ export function App() {
        *
        * A wallet that has just been paid by a cash-in holds stablecoin and no
        * native token at all, so this transfer is unaffordable — and the only
-       * thing the wallet can say about that is "insufficient gas". The server
-       * sends the shortfall and waits for it to land; it costs about two
-       * cents on Polygon.
+       * thing the wallet can say about that is "insufficient gas".
        *
-       * Best-effort on purpose. If it refuses, or the faucet is unfunded, we
-       * still try the transfer and let `sendToken` say exactly what is
-       * missing. The wallet is the authority on whether it can pay, not us.
+       * Asked unconditionally, rather than only when our own `checkGas` says
+       * the wallet is short. That check runs through the injected provider,
+       * which returns ok when it cannot answer at all — so gating a repair on
+       * it means the repair silently never runs on exactly the wallets that
+       * cannot be questioned. The server reads the balance over its own RPC
+       * and refuses when nothing is needed, which is the more reliable place
+       * for the decision to live.
+       *
+       * Best-effort either way: if it refuses we still try the transfer and
+       * let the wallet be the authority on whether it can pay.
        */
-      const gas = await checkGas(getProvider(), {
-        chain: live.chain.slug,
-        from: live.address,
-      });
-      if (!gas.ok) {
-        setGasNote(`Covering the ${gas.symbol} network fee…`);
-        await requestGas(order.ref, live.address);
-        setGasNote(null);
-      }
+      setGasNote("Checking the network fee…");
+      const gas = await requestGas(order.ref, live.address);
+      setGasNote(null);
 
-      await sendToken(getProvider(), {
-        chain: live.chain.slug,
-        symbol,
-        from: live.address,
-        to: order.receiveAddress,
-        amount,
-      });
+      try {
+        await sendToken(getProvider(), {
+          chain: live.chain.slug,
+          symbol,
+          from: live.address,
+          to: order.receiveAddress,
+          amount,
+        });
+      } catch (e) {
+        // If the transfer failed for want of gas, say what happened to the
+        // top-up too. Swallowing that leaves the user staring at a fee they
+        // were told would be covered, with no idea why it was not.
+        const message = e instanceof Error ? e.message : "the transfer failed";
+        const fee = /gas|fee/i.test(message);
+        throw new Error(
+          fee && !gas.funded && gas.reason !== undefined
+            ? `${message} (the fee top-up was refused: ${gas.reason})`
+            : message,
+        );
+      }
 
       setTxState("submitted");
     } catch (e) {
