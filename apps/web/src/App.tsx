@@ -1,6 +1,7 @@
 import {
   CHAINS,
   type Chain,
+  type ChainSlug,
   type Corridor,
   type Direction,
   type TokenSymbol,
@@ -28,17 +29,27 @@ import {
 import { CashinPay, type PayAccount } from "./buy.js";
 import { explainRefusal } from "./explain.js";
 import { Amount, COUNTRY, Home, Intro, Review } from "./flow.js";
+import { type HistoryEntry, list, remember } from "./history.js";
 import { HostPanel } from "./HostPanel.js";
 import { Progress } from "./progress.js";
 import { ChainSheet, CountrySheet } from "./sheets.js";
 import { Receipt } from "./receipt.js";
 import { StatusScreen } from "./screens.js";
+import { Transfers } from "./transfers.js";
 import { useQuote } from "./useQuote.js";
 
 const SUPPORT = "help@nimramp.app";
 const SEEN_INTRO = "nimramp.seen-intro";
 
-type Step = "intro" | "home" | "amount" | "account" | "review" | "cashin_pay";
+type Step =
+  | "intro"
+  | "home"
+  | "amount"
+  | "account"
+  | "review"
+  | "cashin_pay"
+  | "history"
+  | "past";
 
 /** States where something is genuinely in flight and a timeline makes sense. */
 const IN_FLIGHT: State[] = ["submitted", "settling", "stalled"];
@@ -70,6 +81,21 @@ export function App() {
   const [sending, setSending] = useState(false);
   const [gasNote, setGasNote] = useState<string | null>(null);
   const [settled, setSettled] = useState<OrderStatus | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [past, setPast] = useState<OrderStatus | null>(null);
+  const [pastError, setPastError] = useState<string | null>(null);
+
+  /*
+   * Re-read on every return to home, not once on mount. An order created two
+   * screens ago has to be in the list by the time someone goes looking for
+   * it, and Nimiq Pay can change account under us — which changes whose list
+   * this is.
+   */
+  useEffect(() => {
+    if (step === "home" || step === "history") {
+      setHistory(list(session?.address ?? null));
+    }
+  }, [step, session?.address]);
 
   const language = hostLanguage();
   useEffect(() => {
@@ -234,6 +260,7 @@ export function App() {
       });
       setReference(order.ref);
       setAccount(order.account);
+      keep(order.ref, typed, live.address, chain.slug);
     } catch (e) {
       setOrderError(e instanceof Error ? e.message : "could not create the order");
     }
@@ -299,6 +326,7 @@ export function App() {
         recipient,
       });
       setReference(order.ref);
+      keep(order.ref, amount, live.address, live.chain.slug);
 
       if (order.receiveAddress === null) {
         setOrderError("The rail did not give us an address to send to.");
@@ -359,6 +387,45 @@ export function App() {
     }
   }
 
+  /**
+   * Note the order on this device the moment the rail issues a reference.
+   *
+   * Before the money moves, deliberately: an order abandoned at the wallet
+   * dialog, or one that expires unpaid, is exactly the one someone comes
+   * back looking for. Recording only successes would leave every entry
+   * anyone needs to ask about out of the list.
+   */
+  function keep(ref: string, typed: string, address: string, slug: ChainSlug) {
+    remember({
+      ref,
+      direction,
+      corridor,
+      symbol,
+      chain: slug,
+      amount: typed,
+      address,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Open a past transfer.
+   *
+   * The device remembers the reference and nothing else worth showing, so
+   * every figure is read back from the rail here. A receipt rendered out of
+   * local memory is one that can disagree with the ledger it describes.
+   */
+  async function openPast(ref: string) {
+    setPast(null);
+    setPastError(null);
+    setStep("past");
+    try {
+      setPast(await readOrder(ref));
+    } catch (e) {
+      setPastError(e instanceof Error ? e.message : "could not read that transfer");
+    }
+  }
+
   const body = (() => {
     if (txState === "completed" && settled !== null) {
       return <Receipt data={{ ...settled, ref: settled.ref }} onDone={home} />;
@@ -414,6 +481,8 @@ export function App() {
             onConnect={onConnect}
             onOpenChain={() => setSheet("chain")}
             onOpenCountry={() => setSheet("country")}
+            transfers={history.length}
+            onOpenHistory={() => setStep("history")}
           />
         );
 
@@ -467,6 +536,66 @@ export function App() {
             onSent={() => setTxState("submitted")}
           />
         );
+
+      case "history":
+        return (
+          <Transfers
+            entries={history}
+            onOpen={(ref) => void openPast(ref)}
+            onBack={() => setStep("home")}
+          />
+        );
+
+      case "past": {
+        const back = () => setStep("history");
+        if (pastError !== null) {
+          return (
+            <>
+              <div className="nav">
+                <button className="nav__back" type="button" onClick={back} aria-label="Back">‹</button>
+                <span className="nav__title">Transfer</span>
+              </div>
+              <div className="scroll">
+                <p className="body" style={{ color: "var(--fail)" }}>{pastError}</p>
+                <p className="body body--muted" style={{ marginTop: 8 }}>
+                  The transfer itself is unaffected — this is only our reading
+                  of it. Try again in a moment, or quote the reference to{" "}
+                  {SUPPORT}.
+                </p>
+              </div>
+            </>
+          );
+        }
+        if (past === null) {
+          return (
+            <>
+              <div className="nav">
+                <button className="nav__back" type="button" onClick={back} aria-label="Back">‹</button>
+                <span className="nav__title">Transfer</span>
+              </div>
+              <div className="scroll">
+                <p className="body body--muted">Reading it back from the rail…</p>
+              </div>
+            </>
+          );
+        }
+        // Only a completed order has a receipt to show. Everything else gets
+        // the screen that state already has, rather than a receipt with gaps
+        // in it pretending the money arrived.
+        if (past.state === "completed") {
+          return <Receipt data={{ ...past, ref: past.ref }} onDone={back} />;
+        }
+        return past.state === null ? (
+          <StatusScreen state="stalled" reference={past.ref} support={SUPPORT} onDone={back} />
+        ) : (
+          <StatusScreen
+            state={past.state}
+            reference={past.ref}
+            support={SUPPORT}
+            onDone={back}
+          />
+        );
+      }
 
       case "review":
         return (

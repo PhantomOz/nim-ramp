@@ -78,6 +78,14 @@ ledger.
 including the ugly ones. Terminal failures carry a reference she can quote to
 a human.
 
+**Where last month's transfer went.** *Your transfers* on the home screen
+lists everything she has done from this phone with this wallet, newest first,
+and opening one reads the figures back from the rail rather than from memory —
+so a receipt she pulls up in March cannot disagree with the ledger. The index
+is local on purpose: an endpoint that listed a wallet's orders would need no
+key to call, and an Ethereum address is public, so anyone could paste hers and
+read her bank, her name and every amount she has moved.
+
 ## Proof it works
 
 Live on mainnet, both directions. There is no sandbox on this rail, so every
@@ -108,7 +116,7 @@ web port through a tunnel and open that URL via
 serves both halves.
 
 ```bash
-pnpm test           # 207 tests
+pnpm test           # 222 tests
 pnpm run typecheck
 pnpm run build      # builds the mini app
 pnpm start          # one process serving the API and the built app
@@ -124,6 +132,7 @@ pnpm start          # one process serving the API and the built app
 | `packages/wallet` | Nimiq Pay integration, transfers, fee pricing |
 | `apps/api` | HTTP surface, rails webhooks, gas seeding |
 | `apps/web` | The mini app itself |
+| `apps/web/src/history.ts` | The device-local transfer index, and why it is device-local |
 | `apps/assests` | Brand and network artwork (source) |
 | `docs/engineering-brief.html` | Why it is built this way |
 
@@ -152,6 +161,12 @@ per-chain ceiling, never past a daily budget, and never on a chain it has no
 budget for.
 
 ## Not done
+
+Transfer history is per-device. Clearing browser data clears the list — the
+orders themselves survive, because every reference still resolves on the
+server, which is why the reference is the part worth keeping. Making the list
+follow a wallet across phones means proving ownership of the address, which
+means a signature prompt; worth it, not built.
 
 The **on-chain NIM receipt** — writing each settled transfer's reference to
 Nimiq's L1 as a public, independently checkable record — is designed and

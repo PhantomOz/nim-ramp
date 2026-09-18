@@ -120,6 +120,8 @@ export function Home({
   onConnect,
   onOpenChain,
   onOpenCountry,
+  transfers,
+  onOpenHistory,
 }: {
   corridor: Corridor;
   chain: Chain;
@@ -131,6 +133,9 @@ export function Home({
   onConnect: () => void;
   onOpenChain: () => void;
   onOpenCountry: () => void;
+  /** How many past transfers this device remembers for this wallet. */
+  transfers: number;
+  onOpenHistory: () => void;
 }) {
   const country = COUNTRY[corridor];
 
@@ -194,6 +199,19 @@ export function Home({
           <span className="choice__pair">{country.money} → {symbol}</span>
           <p className="choice__note">Pay by bank transfer. Lands in your wallet.</p>
         </button>
+
+        {/* Below the two things someone came to do, not above them. Hidden
+            entirely until there is something in it — an empty list offered on
+            a first run is a dead end dressed as a feature. */}
+        {transfers > 0 ? (
+          <button className="rowlink" type="button" onClick={onOpenHistory}>
+            <span>
+              Your transfers
+              <span className="rowlink__count">{transfers}</span>
+            </span>
+            <span className="rowlink__caret" aria-hidden="true">›</span>
+          </button>
+        ) : null}
 
         {connected && address !== null ? (
           <p className="small" style={{ marginTop: 16 }}>

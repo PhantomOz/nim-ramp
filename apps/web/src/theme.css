@@ -645,3 +645,93 @@ input:focus { outline: none; }
 }
 
 .details--tight .details__row { padding: 11px 0; }
+
+/* ---- transfer history -------------------------------------------------- */
+
+/* The way back into past transfers, sitting under the two things someone
+   came here to do. */
+.rowlink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font: 600 15px var(--ui);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.rowlink:hover { border-color: var(--plum); }
+.rowlink__count {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 9px;
+  background: var(--plum-08);
+  color: var(--plum);
+  font: 600 12px var(--ui);
+}
+.rowlink__caret { color: var(--muted); font-size: 18px; line-height: 1; }
+
+.trows { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.trow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 13px 14px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.trow:hover { border-color: var(--plum); }
+/* Direction as a glyph rather than a word: the row's own text already says
+   which way the money went, and this is what makes the list scannable. */
+.trow__dir {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 15px var(--ui);
+}
+.trow__dir--out { background: var(--plum-08); color: var(--plum); }
+.trow__dir--in { background: rgba(47, 107, 79, .1); color: var(--ok); }
+.trow__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.trow__top { display: flex; align-items: center; gap: 8px; }
+.trow__what {
+  flex: 1;
+  min-width: 0;
+  font: 600 15px var(--ui);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trow__sub {
+  font: 400 12px var(--ui);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 9px;
+  font: 600 11px var(--ui);
+  white-space: nowrap;
+}
+.chip--ok { background: rgba(47, 107, 79, .12); color: var(--ok); }
+.chip--fail { background: rgba(168, 58, 43, .12); color: var(--fail); }
+.chip--warn { background: rgba(122, 74, 12, .12); color: var(--warn); }
+.chip--live { background: var(--plum-08); color: var(--plum); }
