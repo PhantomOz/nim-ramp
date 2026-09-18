@@ -397,6 +397,7 @@ export function Review({
   symbol,
   recipient,
   sending,
+  note,
   error,
   onConfirm,
   onExpired,
@@ -409,6 +410,8 @@ export function Review({
   symbol: TokenSymbol;
   recipient: { institution: string; accountIdentifier: string; accountName: string } | null;
   sending: boolean;
+  /** What is happening right now, when it is not simply the wallet's turn. */
+  note?: string | null;
   error: string | null;
   onConfirm: () => void;
   onExpired: () => void;
@@ -455,7 +458,9 @@ export function Review({
             <Num size="num--xl" marked sym={country.sym} value={fmt(receive)} />
           </div>
           <p className="body body--muted" style={{ marginTop: 8 }}>
-            {sending
+            {note !== null && note !== undefined
+              ? note
+              : sending
               ? "Approve the transfer in Nimiq Pay."
               : expired
                 ? "The lock ran out. Nothing was sent."
@@ -507,7 +512,13 @@ export function Review({
 
       <div className="foot">
         <button className="btn" type="button" disabled={sending || expired} onClick={onConfirm}>
-          {sending ? "Waiting for your wallet…" : expired ? "Price expired" : "Confirm in wallet"}
+          {note !== null && note !== undefined
+            ? note
+            : sending
+              ? "Waiting for your wallet…"
+              : expired
+                ? "Price expired"
+                : "Confirm in wallet"}
         </button>
         <button className="btn btn--secondary" type="button" onClick={onBack}>
           Back

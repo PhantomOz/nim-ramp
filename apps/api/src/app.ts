@@ -12,14 +12,33 @@ import { verifySignature } from "@ramp/rails/webhook";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
+import { decideDrip } from "./drip.js";
+import type { DripLog } from "./driplog.js";
 import { newReference, type Store } from "./store.js";
 
 /** Our cut, as shown on the amount screen and charged by the rail. */
 const SENDER_FEE_PERCENT = "0.5";
 
+/**
+ * The chain side of gas seeding, kept behind an interface so the policy and
+ * the route can be tested without a key, an RPC or a real transaction.
+ */
+export type Funder = {
+  read: (
+    chain: ChainSlug,
+    address: string,
+  ) => Promise<{ balance: bigint; gasPrice: bigint }>;
+  /** Returns the transaction hash. */
+  send: (chain: ChainSlug, to: string, amountWei: bigint) => Promise<string>;
+};
+
 export type AppDeps = {
   client: PaycrestClient;
   store: Store;
+  /** What the gas faucet has already paid out. */
+  dripLog: DripLog;
+  /** Absent when no funding wallet is configured; the faucet then refuses. */
+  funder?: Funder;
   webhookSecret: string;
   /** The per-transfer ceiling, so the app can show it rather than enforce it. */
   maxTxUsdt: string;
@@ -201,6 +220,8 @@ export function createApp(deps: AppDeps) {
         chain,
         symbol,
         amount,
+        // Kept so a later gas top-up can prove who owns this order.
+        address: body.address,
         createdAt: new Date().toISOString(),
       });
 
@@ -381,6 +402,85 @@ export function createApp(deps: AppDeps) {
         unavailable ? 503 : 422,
       );
     }
+  });
+
+  /**
+   * Seed gas for a cash-out.
+   *
+   * A wallet that has just received stablecoin from a cash-in holds no native
+   * token, so the transfer back out is unaffordable — and the wallet reports
+   * that as a bare "insufficient gas" on a screen that cannot explain it. We
+   * send the shortfall ourselves; it costs about two cents on Polygon.
+   *
+   * This is a faucet, so the interesting part is all refusal. `decideDrip`
+   * holds that argument and is tested on its own.
+   */
+  app.post("/api/gas", async (c) => {
+    let body: { ref?: string; address?: string };
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ error: "body must be JSON" }, 400);
+    }
+
+    if (typeof body.ref !== "string" || typeof body.address !== "string") {
+      return c.json({ error: "ref and address are required" }, 400);
+    }
+
+    if (deps.funder === undefined) {
+      return c.json({ error: "gas top-ups are not configured" }, 503);
+    }
+    const funder = deps.funder;
+
+    const record = deps.store.byRef(body.ref);
+
+    // Read the chain before deciding: the balance may have been topped up by
+    // hand, and the gas price is what sets the amount.
+    let chainState = { balance: 0n, gasPrice: 0n };
+    if (record !== undefined) {
+      try {
+        chainState = await funder.read(record.chain, body.address);
+      } catch {
+        return c.json({ error: "could not reach the chain right now" }, 502);
+      }
+    }
+
+    const decision = decideDrip({
+      record,
+      address: body.address,
+      balance: chainState.balance,
+      gasPrice: chainState.gasPrice,
+      alreadyDripped: deps.dripLog.dripped(body.ref),
+      spentToday:
+        record === undefined ? 0n : deps.dripLog.spentToday(record.chain, new Date()),
+    });
+
+    if (!decision.ok) {
+      return c.json({ error: decision.reason }, decision.status as 400);
+    }
+
+    let txHash: string;
+    try {
+      txHash = await funder.send(decision.chain, decision.to, decision.amountWei);
+    } catch (error) {
+      // Deliberately not recorded. Marking the order funded when nothing was
+      // sent spends the single attempt on a transaction that never happened,
+      // and the user could never ask again.
+      return c.json(
+        { error: error instanceof Error ? error.message : "could not send gas" },
+        502,
+      );
+    }
+
+    deps.dripLog.put({
+      ref: body.ref,
+      chain: decision.chain,
+      amountWei: decision.amountWei.toString(),
+      txHash,
+      at: new Date().toISOString(),
+    });
+
+    return c.json({ txHash, amountWei: decision.amountWei.toString() });
   });
 
   /**

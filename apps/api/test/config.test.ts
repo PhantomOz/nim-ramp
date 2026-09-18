@@ -45,3 +45,23 @@ test("a corridor is off unless switched on", () => {
 test("a nonsense cap is refused rather than silently treated as zero", () => {
   expect(() => loadConfig({ ...ok, MAX_TX_USDT: "lots" })).toThrow(/MAX_TX_USDT/);
 });
+
+test("the gas funder is optional, and unset means no faucet", () => {
+  // The rest of the app works without it. Requiring a hot key to boot would
+  // make a payments API refuse to start over an optional convenience.
+  expect(loadConfig(ok).gasFunderKey).toBeUndefined();
+});
+
+test("a malformed funder key is refused at boot, not at the first top-up", () => {
+  // Finding this out later means finding it out while someone is stuck
+  // mid-cash-out with no gas.
+  expect(() => loadConfig({ ...ok, GAS_FUNDER_KEY: "hunter2" })).toThrow(
+    /GAS_FUNDER_KEY/,
+  );
+  expect(() => loadConfig({ ...ok, GAS_FUNDER_KEY: "0x1234" })).toThrow(
+    /GAS_FUNDER_KEY/,
+  );
+
+  const key = `0x${"a".repeat(64)}`;
+  expect(loadConfig({ ...ok, GAS_FUNDER_KEY: key }).gasFunderKey).toBe(key);
+});

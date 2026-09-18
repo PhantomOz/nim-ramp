@@ -99,6 +99,16 @@ export const CHAINS: readonly Chain[] = [
   ),
 ];
 
+/**
+ * Gas for a plain ERC-20 transfer, with room to spare.
+ *
+ * Shared deliberately. The client uses it to tell someone how much native
+ * token they need; the server uses it to decide how much to send them. Two
+ * copies of this number drift, and the drift shows up as a top-up that does
+ * not quite cover the transfer it was meant to pay for.
+ */
+export const TRANSFER_GAS = 90_000n;
+
 export function chainBySlug(slug: string): Chain | null {
   return CHAINS.find((c) => c.slug === slug) ?? null;
 }

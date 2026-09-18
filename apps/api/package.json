@@ -12,10 +12,11 @@
     "dev": "tsx --env-file-if-exists=../../.env src/server.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1.13.0",
     "@ramp/core": "workspace:*",
     "@ramp/machine": "workspace:*",
     "@ramp/rails": "workspace:*",
     "hono": "^4.6.0",
-    "@hono/node-server": "^1.13.0"
+    "viem": "^2.56.3"
   }
 }

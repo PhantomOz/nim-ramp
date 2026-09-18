@@ -1,4 +1,4 @@
-import { type ChainSlug } from "@ramp/core";
+import { type ChainSlug, TRANSFER_GAS } from "@ramp/core";
 
 import { type Eip1193 } from "./connect.js";
 
@@ -16,9 +16,6 @@ const GAS_TOKEN: Record<ChainSlug, string> = {
   ethereum: "ETH",
   "bnb-smart-chain": "BNB",
 };
-
-/** A plain ERC-20 transfer, with room to spare. */
-const TRANSFER_GAS = 90_000n;
 
 export type GasCheck =
   | { ok: true }

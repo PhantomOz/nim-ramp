@@ -5,6 +5,8 @@ import { createClient } from "@ramp/rails";
 
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { openDripLog } from "./driplog.js";
+import { createFunder, funderAddress } from "./funder.js";
 import { openStore } from "./store.js";
 
 // Fails here, at boot, rather than in front of a user mid-order.
@@ -33,11 +35,26 @@ const ordersPath =
 
 const store = openStore(ordersPath);
 
+const dripsPath =
+  process.env["DRIPS_PATH"] ??
+  fileURLToPath(new URL("../../../.nimramp/drips.jsonl", import.meta.url));
+
+const dripLog = openDripLog(dripsPath);
+
+// Absent without a key. The faucet then refuses politely and the rest of the
+// app is unaffected — a cash-out still works for anyone holding gas already.
+const funder =
+  config.gasFunderKey === undefined
+    ? undefined
+    : createFunder({ privateKey: config.gasFunderKey, env: process.env });
+
 const webOrigin = process.env["WEB_ORIGIN"];
 
 const app = createApp({
   client,
   store,
+  dripLog,
+  ...(funder === undefined ? {} : { funder }),
   webhookSecret: config.webhookSecret,
   maxTxUsdt: config.maxTxUsdt,
   // The mini app is same-origin in production and proxied through Vite in
@@ -57,6 +74,11 @@ console.log(
     `  cap       : ${config.maxTxUsdt} USDT per transfer`,
     `  kill      : ${config.killSwitch ? "ON — refusing every order" : "off"}`,
     `  orders    : ${ordersPath}`,
+    `  gas       : ${
+      config.gasFunderKey === undefined
+        ? "no funder key — cash-out needs the user to hold gas"
+        : `funding from ${funderAddress(config.gasFunderKey)}`
+    }`,
   ].join("\n"),
 );
 

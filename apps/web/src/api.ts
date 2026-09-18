@@ -222,3 +222,41 @@ export async function readLimits(
 ): Promise<{ maxTxUsdt: string }> {
   return unwrap(await send(fetchImpl, "/api/limits"));
 }
+
+export type GasTopUp = { funded: boolean; reason?: string };
+
+/**
+ * Ask the server to cover the network fee for this cash-out.
+ *
+ * A wallet that has just been paid by a cash-in holds stablecoin and no
+ * native token, so the transfer back out is unaffordable. The server sends
+ * the shortfall — about two cents on Polygon — and waits for it to land.
+ *
+ * Deliberately never throws. This is best-effort help: a wallet that can
+ * already pay does not need it, and turning a faucet outage into an exception
+ * would replace the user's real problem with ours on a screen about sending
+ * money. The caller proceeds either way and lets the wallet be the authority.
+ */
+export async function requestGas(
+  ref: string,
+  address: string,
+  fetchImpl: Fetch = globalThis.fetch,
+): Promise<GasTopUp> {
+  try {
+    const response = await fetchImpl("/api/gas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ref, address }),
+    });
+
+    const raw = await response.text();
+    const body = raw.trim() === "" ? {} : (JSON.parse(raw) as { error?: string });
+
+    if (!response.ok) {
+      return { funded: false, ...(body.error === undefined ? {} : { reason: body.error }) };
+    }
+    return { funded: true };
+  } catch {
+    return { funded: false };
+  }
+}

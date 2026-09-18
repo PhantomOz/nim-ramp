@@ -17,6 +17,11 @@ export type Config = {
   killSwitch: boolean;
   enabledCorridors: Corridor[];
   port: number;
+  /**
+   * Private key of the wallet that seeds gas for cash-outs. Optional: without
+   * it the faucet refuses and everything else works unchanged.
+   */
+  gasFunderKey?: string;
 };
 
 type Env = Record<string, string | undefined>;
@@ -51,6 +56,13 @@ export function loadConfig(env: Env): Config {
 
   const portRaw = env["PORT"]?.trim();
 
+  // Checked here so a typo in a hot key is a boot failure, not a discovery
+  // made while someone is stuck mid-cash-out with no gas.
+  const funderKey = env["GAS_FUNDER_KEY"]?.trim();
+  if (funderKey !== undefined && funderKey !== "" && !/^0x[0-9a-fA-F]{64}$/.test(funderKey)) {
+    throw new Error("GAS_FUNDER_KEY is not a 32-byte hex private key");
+  }
+
   return {
     baseUrl: required(env, "RAILS_API_BASE"),
     apiKey: required(env, "RAILS_API_KEY"),
@@ -64,5 +76,6 @@ export function loadConfig(env: Env): Config {
     // 8788 matches the Vite proxy's default target. With the two defaults
     // disagreeing, running both with no PORT set points the proxy at nothing.
     port: portRaw === undefined || portRaw === "" ? 8788 : Number(portRaw),
+    ...(funderKey === undefined || funderKey === "" ? {} : { gasFunderKey: funderKey }),
   };
 }

@@ -7,6 +7,7 @@ import {
 } from "@ramp/core";
 import type { State } from "@ramp/machine";
 import {
+  checkGas,
   connect,
   liveAccount,
   getProvider,
@@ -23,6 +24,7 @@ import {
   type OrderStatus,
   readLimits,
   readOrder,
+  requestGas,
 } from "./api.js";
 import { CashinPay, type PayAccount } from "./buy.js";
 import { explainRefusal } from "./explain.js";
@@ -67,6 +69,7 @@ export function App() {
   const [maxTxUsdt, setMaxTxUsdt] = useState<string | null>(null);
   const [recipient, setRecipient] = useState<Account | null>(null);
   const [sending, setSending] = useState(false);
+  const [gasNote, setGasNote] = useState<string | null>(null);
   const [settled, setSettled] = useState<OrderStatus | null>(null);
 
   const language = hostLanguage();
@@ -303,6 +306,29 @@ export function App() {
         return;
       }
 
+      /*
+       * Cover the network fee before asking for a signature.
+       *
+       * A wallet that has just been paid by a cash-in holds stablecoin and no
+       * native token at all, so this transfer is unaffordable — and the only
+       * thing the wallet can say about that is "insufficient gas". The server
+       * sends the shortfall and waits for it to land; it costs about two
+       * cents on Polygon.
+       *
+       * Best-effort on purpose. If it refuses, or the faucet is unfunded, we
+       * still try the transfer and let `sendToken` say exactly what is
+       * missing. The wallet is the authority on whether it can pay, not us.
+       */
+      const gas = await checkGas(getProvider(), {
+        chain: live.chain.slug,
+        from: live.address,
+      });
+      if (!gas.ok) {
+        setGasNote(`Covering the ${gas.symbol} network fee…`);
+        await requestGas(order.ref, live.address);
+        setGasNote(null);
+      }
+
       await sendToken(getProvider(), {
         chain: live.chain.slug,
         symbol,
@@ -317,6 +343,7 @@ export function App() {
       // moved, and the order simply expires unpaid.
       setOrderError(e instanceof Error ? e.message : "could not start the transfer");
     } finally {
+      setGasNote(null);
       setSending(false);
     }
   }
@@ -440,6 +467,7 @@ export function App() {
             symbol={symbol}
             recipient={recipient}
             sending={sending}
+            note={gasNote}
             error={orderError}
             onBack={() => setStep("account")}
             onExpired={() => setTxState("quote_expired")}

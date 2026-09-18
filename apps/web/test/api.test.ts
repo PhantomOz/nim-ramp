@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
 
-import { createOrder, readOrder } from "../src/api.js";
+import { createOrder, readOrder, requestGas } from "../src/api.js";
 
 const okResponse = (body: unknown, status = 200) =>
   ({
@@ -103,4 +103,37 @@ test("a network failure is not mistaken for a rejected order", async () => {
   await expect(readOrder("NR-ABCD", fetchMock)).rejects.toThrow(
     /could not reach the NimRamp API/i,
   );
+});
+
+test("a gas top-up reports success without the caller having to catch", async () => {
+  const fetchImpl = (async () =>
+    new Response(JSON.stringify({ txHash: "0xfeed", amountWei: "1800" }), {
+      status: 200,
+    })) as unknown as typeof fetch;
+
+  await expect(requestGas("NR-A", "0xabc", fetchImpl)).resolves.toMatchObject({
+    funded: true,
+  });
+});
+
+test("a refused top-up comes back as a result, not an exception", async () => {
+  // Best-effort by design. Throwing here would replace the wallet's real
+  // problem with the faucet's, on a screen about sending money.
+  const fetchImpl = (async () =>
+    new Response(JSON.stringify({ error: "today's gas budget for that chain is spent" }), {
+      status: 429,
+    })) as unknown as typeof fetch;
+
+  await expect(requestGas("NR-A", "0xabc", fetchImpl)).resolves.toMatchObject({
+    funded: false,
+    reason: "today's gas budget for that chain is spent",
+  });
+});
+
+test("an unreachable API does not stop a wallet that can already pay", async () => {
+  const fetchImpl = (async () => Promise.reject(new Error("offline"))) as unknown as typeof fetch;
+
+  await expect(requestGas("NR-A", "0xabc", fetchImpl)).resolves.toMatchObject({
+    funded: false,
+  });
 });

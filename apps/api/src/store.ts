@@ -20,6 +20,13 @@ export type OrderRecord = {
   chain: ChainSlug;
   symbol: TokenSymbol;
   amount: string;
+  /**
+   * The user's own wallet: where stablecoin lands on a cash-in, where it
+   * returns on a failed cash-out — and the only proof of who owns an order.
+   * Optional because log lines written before this existed do not have it,
+   * and anything reading it has to fail closed rather than assume.
+   */
+  address?: string;
   createdAt: string;
 };
 
