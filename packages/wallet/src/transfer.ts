@@ -2,6 +2,7 @@ import { type ChainSlug, chainBySlug, toMinor, tokenOn, type TokenSymbol } from 
 import { encodeFunctionData, isAddress } from "viem";
 
 import { currentChain, type Eip1193, WalletError } from "./connect.js";
+import { feeFields } from "./fees.js";
 import { checkGas } from "./gas.js";
 
 export const ERC20_ABI = [
@@ -92,6 +93,18 @@ export async function sendToken(
     args: [transfer.to as `0x${string}`, amount],
   });
 
+  /*
+   * Price the transaction ourselves.
+   *
+   * Left to choose, a wallet applies whatever defaults it ships with, and
+   * Ethereum-shaped defaults are below the 25 gwei priority fee Polygon's
+   * validators require — the transaction is then refused for being
+   * underpriced, which reads as a fee complaint from a wallet holding ample
+   * POL. Null when the chain cannot be read, and then the wallet's own guess
+   * is still better than one we invented.
+   */
+  const fees = await feeFields(provider, transfer.chain);
+
   return (await provider.request({
     method: "eth_sendTransaction",
     params: [
@@ -101,6 +114,7 @@ export async function sendToken(
         // Nothing native moves: the value rides in the ERC-20 call data.
         value: "0x0",
         data,
+        ...(fees ?? {}),
       },
     ],
   })) as string;

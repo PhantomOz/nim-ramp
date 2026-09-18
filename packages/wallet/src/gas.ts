@@ -1,6 +1,7 @@
 import { type ChainSlug, TRANSFER_GAS } from "@ramp/core";
 
 import { type Eip1193 } from "./connect.js";
+import { feeFields } from "./fees.js";
 
 /**
  * The native token each chain charges gas in.
@@ -44,13 +45,18 @@ export async function checkGas(
   params: { chain: ChainSlug; from: string },
 ): Promise<GasCheck> {
   try {
-    const [balanceHex, priceHex] = (await Promise.all([
+    const [balanceHex, priceHex, fees] = (await Promise.all([
       provider.request({ method: "eth_getBalance", params: [params.from, "latest"] }),
       provider.request({ method: "eth_gasPrice" }),
-    ])) as [string, string];
+      feeFields(provider, params.chain),
+    ])) as [string, string, Awaited<ReturnType<typeof feeFields>>];
 
     const balance = BigInt(balanceHex);
-    const needed = BigInt(priceHex) * TRANSFER_GAS;
+    // The same ceiling the transfer will actually offer. Quoting the gas
+    // price instead understates it — a wallet checks against its fee cap,
+    // which is higher, so the number here would be one the wallet refuses.
+    const perGas = fees === null ? BigInt(priceHex) : BigInt(fees.maxFeePerGas);
+    const needed = perGas * TRANSFER_GAS;
 
     if (balance >= needed) return { ok: true };
 

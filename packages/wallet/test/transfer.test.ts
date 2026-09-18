@@ -124,3 +124,55 @@ test("a recipient that fails its checksum is refused before broadcast", async ()
   ).rejects.toThrow(WalletError);
   expect(sent).toHaveLength(0);
 });
+
+test("sets the fee fields itself rather than letting the wallet guess", async () => {
+  // Polygon rejects a priority fee under 25 gwei as underpriced, and a wallet
+  // carrying Ethereum defaults picks well under that. The rejection mentions
+  // the fee, not the balance, on a wallet holding plenty of POL.
+  const GWEI = 1_000_000_000n;
+  const provider: Eip1193 = {
+    request: async ({ method, params }) => {
+      if (method === "eth_chainId") return "0x89";
+      if (method === "eth_getBlockByNumber") {
+        return { baseFeePerGas: `0x${(100n * GWEI).toString(16)}` };
+      }
+      // A node suggesting far below Polygon's floor.
+      if (method === "eth_maxPriorityFeePerGas") return `0x${(2n * GWEI).toString(16)}`;
+      if (method === "eth_getBalance") return `0x${(10n ** 18n).toString(16)}`;
+      if (method === "eth_gasPrice") return `0x${(100n * GWEI).toString(16)}`;
+      if (method === "eth_sendTransaction") {
+        sent.push((params as Record<string, string>[])[0] ?? {});
+        return "0xhash";
+      }
+      throw new Error(`unstubbed ${method}`);
+    },
+  };
+  const sent: Record<string, string>[] = [];
+
+  await sendToken(provider, {
+    chain: "polygon",
+    symbol: "USDT",
+    from: FROM,
+    to: TO,
+    amount: "0.5",
+  });
+
+  expect(BigInt(sent[0]?.maxPriorityFeePerGas ?? "0x0")).toBe(25n * GWEI);
+  expect(BigInt(sent[0]?.maxFeePerGas ?? "0x0")).toBe(225n * GWEI);
+});
+
+test("still sends when the wallet cannot answer fee questions at all", async () => {
+  // Omitting the fields is what we did before; a provider that cannot be
+  // questioned must not lose the ability to transfer.
+  const { provider, sent } = wallet("0x89");
+  await sendToken(provider, {
+    chain: "polygon",
+    symbol: "USDT",
+    from: FROM,
+    to: TO,
+    amount: "0.5",
+  });
+
+  expect(sent[0]?.maxFeePerGas).toBeUndefined();
+  expect(sent[0]?.to).toBe(tokenOn("polygon", "USDT").address);
+});
