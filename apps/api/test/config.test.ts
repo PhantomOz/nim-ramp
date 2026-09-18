@@ -65,3 +65,11 @@ test("a malformed funder key is refused at boot, not at the first top-up", () =>
   const key = `0x${"a".repeat(64)}`;
   expect(loadConfig({ ...ok, GAS_FUNDER_KEY: key }).gasFunderKey).toBe(key);
 });
+
+test("accepts a funder key with or without the 0x prefix", () => {
+  // MetaMask exports without it, most tooling expects it. Refusing the bare
+  // form is a boot failure over punctuation.
+  const bare = "a".repeat(64);
+  expect(loadConfig({ ...ok, GAS_FUNDER_KEY: bare }).gasFunderKey).toBe(`0x${bare}`);
+  expect(loadConfig({ ...ok, GAS_FUNDER_KEY: `0x${bare}` }).gasFunderKey).toBe(`0x${bare}`);
+});

@@ -56,11 +56,21 @@ export function loadConfig(env: Env): Config {
 
   const portRaw = env["PORT"]?.trim();
 
-  // Checked here so a typo in a hot key is a boot failure, not a discovery
-  // made while someone is stuck mid-cash-out with no gas.
-  const funderKey = env["GAS_FUNDER_KEY"]?.trim();
-  if (funderKey !== undefined && funderKey !== "" && !/^0x[0-9a-fA-F]{64}$/.test(funderKey)) {
-    throw new Error("GAS_FUNDER_KEY is not a 32-byte hex private key");
+  /*
+   * Checked here so a typo in a hot key is a boot failure, not a discovery
+   * made while someone is stuck mid-cash-out with no gas.
+   *
+   * The prefix is normalised rather than demanded: MetaMask exports a bare
+   * 64-character key and most tooling expects `0x`, so insisting on one form
+   * turns punctuation into a refusal to start.
+   */
+  const rawKey = env["GAS_FUNDER_KEY"]?.trim();
+  let funderKey: string | undefined;
+  if (rawKey !== undefined && rawKey !== "") {
+    funderKey = rawKey.startsWith("0x") ? rawKey : `0x${rawKey}`;
+    if (!/^0x[0-9a-fA-F]{64}$/.test(funderKey)) {
+      throw new Error("GAS_FUNDER_KEY is not a 32-byte hex private key");
+    }
   }
 
   return {
@@ -76,6 +86,6 @@ export function loadConfig(env: Env): Config {
     // 8788 matches the Vite proxy's default target. With the two defaults
     // disagreeing, running both with no PORT set points the proxy at nothing.
     port: portRaw === undefined || portRaw === "" ? 8788 : Number(portRaw),
-    ...(funderKey === undefined || funderKey === "" ? {} : { gasFunderKey: funderKey }),
+    ...(funderKey === undefined ? {} : { gasFunderKey: funderKey }),
   };
 }
